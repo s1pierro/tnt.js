@@ -8,10 +8,14 @@
 		
 		
 		<style>
+		
 			body
 			{
 				background-color: #111;
 				color: #bbb;
+				
+				
+				
 			}
 			h1
 			{
@@ -29,34 +33,79 @@
 			{
 				color: #d00;
 			}
+			#stick-1
+			{
+				position: fixed;
+				right: 2.5em;
+				bottom: 2.5em;
+			border-radius: 32px; 
+				width: 60px;
+				height: 60px;
+				background-color: #666;
+					border: solid 4px #666;
+		}
+			#stick-1-son
+			{
+				position: fixed;
+				top: 30px;
+				left: 30px;
+				border-radius: 17px; 
+				width: 30px;
+				height: 30px;
+				background-color: rgba(0, 0, 0, 0.0);
+				border: solid 4px #f4f;
+			}
+			#stick-1-ground
+			{
+						position: fixed;
+				right: 2.5em;
+				bottom: 2.5em;
+				
+				border-radius: 32px; 
+				width: 60px;
+				height: 60px;
+				background-color: rgba(0, 0, 0, 0.0);
+				border: solid 4px #666;
+			}
+			.noselect {
+	-webkit-touch-callout: none;
+	/* iOS Safari */
+	-webkit-user-select: none;
+	/* Safari */
+	-khtml-user-select: none;
+	/* Konqueror HTML */
+	-moz-user-select: none;
+	/* Firefox */
+	-ms-user-select: none;
+	/* Internet Explorer/Edge */
+	user-select: none;
+	/* Non-prefixed version, currently supported by Chrome and Opera */
+}
 		</style>
-		<script>
-			var intervalID;
 
-			function getRandomInt(max)
-			{
-			  return Math.floor(Math.random() * Math.floor(max));
-			}
-			function run()
-			{
-			  intervalID = setInterval(flashText, 100);
-			}
-			function flashText()
-			{
-				var state = ["-", "*", "*", "*", "*", "*", "*", "*", "*", "*", "*", ".", "*", "*", "*", "*", "*", "*"];
-				var flamecolor = ["yellow", "red", "orange", "white"];
-				var elem = document.getElementById("flame");
-				elem.innerHTML = '<span style="color: '+flamecolor[getRandomInt(flamecolor.length)]+';">'+
-											state[getRandomInt(state.length)]+
-									  "</span>";
 
-			}
-		</script>
 	</head>
 
-	<body onload="run();">
+	<body class="noselect">
 		
 		<h1><span class="tnt">()_</span>TNT.js<span class="tnt">_)</span><span class="meche">----</span><span  id="flame">*</span></h1>
+
+		<div class="stick" id="stick-1-ground">
+			
+		
+		</div>
+		<div class="stick" id="stick-1">
+			
+		
+		</div>
+		<div class="stick" id="stick-1-son">
+			
+		
+		</div>
+		
+		
+		<script src="jquery.min.js"></script>
+		<script src="TNT.js"></script>
 	
 	</body>
 </html>
