@@ -10,7 +10,7 @@
 		<style>
 			body
 			{
-				background-color: #222;
+				background-color: #111;
 				color: #ccc;
 			}
 			h1
@@ -20,6 +20,14 @@
 				top: Calc(50vh - 2em);
 				text-align: center;
 				width:100vw;
+			}
+			.meche
+			{
+				color: #555;
+			}
+			.tnt
+			{
+				color: red;
 			}
 		</style>
 		<script>
@@ -36,15 +44,19 @@
 			function flashText()
 			{
 				var state = ["-", "*"];
+				var flamecolor = ["yellow", "red", "orange", "white"];
 				var elem = document.getElementById("flame");
-				elem.innerHTML = state[getRandomInt(state.length)]; 
+				elem.innerHTML = '<span style="color: '+flamecolor[getRandomInt(flamecolor.length)]+';">'+
+											state[getRandomInt(state.length)]+
+									  "</span>";
+
 			}
 		</script>
 	</head>
 
 	<body onload="run();">
 		
-		<h1>()_TNT.js_)----<span  id="flame">*</span></h1>
+		<h1><span class="tnt">()_</span>TNT.js<span class="tnt">_)</span><span class="meche">----</span><span  id="flame">*</span></h1>
 	
 	</body>
 </html>
