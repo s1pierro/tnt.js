@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+   	<meta name="description" content="()_TNT_)--*  <-(Oo) !!!>">
+		<title>TNT.js</title>
+		
+		
+		<style>
+			body
+			{
+				background-color: #222;
+				color: #ccc;
+			}
+			h1
+			{
+				font-family: monospace, monospace;
+				position: fixed;
+				top: Calc(50vh - 2em);
+				text-align: center;
+				width:100vw;
+			}
+		</style>
+		<script>
+			var intervalID;
+
+			function getRandomInt(max)
+			{
+			  return Math.floor(Math.random() * Math.floor(max));
+			}
+			function run()
+			{
+			  intervalID = setInterval(flashText, 100);
+			}
+			function flashText()
+			{
+				var state = ["-", "*"];
+				var elem = document.getElementById("flame");
+				elem.innerHTML = state[getRandomInt(state.length)]; 
+			}
+		</script>
+	</head>
+
+	<body onload="run();">
+		
+		<h1>()_TNT.js_)----<span  id="flame">*</span></h1>
+	
+	</body>
+</html>
