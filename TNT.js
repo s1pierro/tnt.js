@@ -6,17 +6,6 @@ class Vector {
 		this.n = c
 	}
 }
-
-function getRandomId()
-{
-	var l = 9;
-  	return "id"+ Math.floor(Math.random() * Math.floor(l))+
-  			Math.floor(Math.random() * Math.floor(l))+
-  			Math.floor(Math.random() * Math.floor(l))+
-  			Math.floor(Math.random() * Math.floor(l));
-}
-
-
 class TNT { 
 
 	constructor(params) {
@@ -25,6 +14,7 @@ class TNT {
 		this.y = 0;
 		this.w = 0;
 		this.h = 0;
+	//	this.value = undefined;
 		var w = document.getElementsByTagName("body")[0].offsetWidth;
 		var h = document.getElementsByTagName("body")[0].offsetHeight;
 		if ( h > w )
@@ -86,11 +76,12 @@ class TNT {
 
 
 		var s = this.stick;
-
+		var nt = "";
+		var target = "";
 
 		this.stick.addEventListener("touchmove",  function (evt) {
 		
-			var v = vectfromvertices([px, py, 0], [evt.touches[0].clientX, evt.touches[0].clientY, 0]);
+			var v = vectfromvertices([px, py, 0], [evt.touches[nt].clientX, evt.touches[nt].clientY, 0]);
 			var intensity = v.n/50*15;
 			if ( intensity > 15 ) intensity = 15;
 
@@ -103,8 +94,13 @@ class TNT {
 		
 		}, false);;
 		this.stick.addEventListener("touchstart",  function (evt) {
+			
+			for ( var i = 0 ; i < evt.touches.length ; i++)
+				if ( evt.touches[i].target.id  == s.id ) nt = i;
+		
+		
 			evt.preventDefault();
-			var v = vectfromvertices([px, py, 0], [evt.touches[0].clientX, evt.touches[0].clientY, 0]);
+			var v = vectfromvertices([px, py, 0], [evt.touches[nt].clientX, evt.touches[nt].clientY, 0]);
 			var intensity = v.n/50*15;
 			if ( intensity > 15 ) intensity = 15;
 
@@ -125,17 +121,21 @@ class TNT {
 		
 		}, false);;
 	}
+	
+	
 	get value()
 	{
 		//return this.value;
 	}
 }
-
-
-
-
-/** @constructor */
-
+function getRandomId()
+{
+	var l = 9;
+  	return "id"+ Math.floor(Math.random() * Math.floor(l))+
+  			Math.floor(Math.random() * Math.floor(l))+
+  			Math.floor(Math.random() * Math.floor(l))+
+  			Math.floor(Math.random() * Math.floor(l));
+}
 
 function vectfromvertices(a, b) {
 	if (a[0] == b[0] && a[1] == b[1] && a[2] == b[2])
