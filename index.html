@@ -13,7 +13,11 @@
 			{
 				background-color: #111;
 				color: #bbb;
-				
+				width: 100vw;
+				height: 100vh;
+				overflow: hide;
+				margin:0px;
+				padding: 0px;
 				
 				
 			}
@@ -33,40 +37,7 @@
 			{
 				color: #d00;
 			}
-			#stick-1
-			{
-				position: fixed;
-				right: 2.5em;
-				bottom: 2.5em;
-			border-radius: 32px; 
-				width: 60px;
-				height: 60px;
-				background-color: #666;
-					border: solid 4px #666;
-		}
-			#stick-1-son
-			{
-				position: fixed;
-				top: 30px;
-				left: 30px;
-				border-radius: 17px; 
-				width: 30px;
-				height: 30px;
-				background-color: rgba(0, 0, 0, 0.0);
-				border: solid 4px #f4f;
-			}
-			#stick-1-ground
-			{
-						position: fixed;
-				right: 2.5em;
-				bottom: 2.5em;
-				
-				border-radius: 32px; 
-				width: 60px;
-				height: 60px;
-				background-color: rgba(0, 0, 0, 0.0);
-				border: solid 4px #666;
-			}
+
 			.noselect {
 	-webkit-touch-callout: none;
 	/* iOS Safari */
@@ -90,22 +61,10 @@
 		
 		<h1><span class="tnt">()_</span>TNT.js<span class="tnt">_)</span><span class="meche">----</span><span  id="flame">*</span></h1>
 
-		<div class="stick" id="stick-1-ground">
-			
-		
-		</div>
-		<div class="stick" id="stick-1">
-			
-		
-		</div>
-		<div class="stick" id="stick-1-son">
-			
-		
-		</div>
-		
 		
 		<script src="jquery.min.js"></script>
 		<script src="TNT.js"></script>
+		<script src="demo.js"></script>
 	
 	</body>
 </html>

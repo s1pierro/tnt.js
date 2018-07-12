@@ -1,32 +1,142 @@
+class Vector { 
 
-//document.getElementsById("stick-1").addEventListener("touchstart", handleStart, false);
-
-function getRandomInt(max)
-{
-  return Math.floor(Math.random() * Math.floor(max));
-}
-
-function Flaminate (flame)
-{
-	var intervalID;
-	intervalID = setInterval(flashText, 100);
-  function flashText()
-	{
-		var state = ["-", "*", "*", "*", "*", "*", "*", "*", "*", "*", "*", ".", "*", "*", "*", "*", "*", "*"];
-		var flamecolor = ["yellow", "red", "orange", "white"];
-
-		flame.innerHTML = 
-							'<span style="color: '+flamecolor[getRandomInt(flamecolor.length)]+';">'+
-								state[getRandomInt(state.length)]+
-						   '</span>';
+	constructor(a, b, c) {
+		this.o = a;
+		this.s = b;
+		this.n = c
 	}
 }
-/** @constructor */
-function Vector(a, b, c) {
-    this.o = a;
-    this.s = b;
-    this.n = c
+
+function getRandomId()
+{
+	var l = 9;
+  	return "id"+ Math.floor(Math.random() * Math.floor(l))+
+  			Math.floor(Math.random() * Math.floor(l))+
+  			Math.floor(Math.random() * Math.floor(l))+
+  			Math.floor(Math.random() * Math.floor(l));
 }
+
+
+class TNT { 
+
+	constructor(params) {
+
+		this.x = 0;
+		this.y = 0;
+		this.w = 0;
+		this.h = 0;
+		var w = document.getElementsByTagName("body")[0].offsetWidth;
+		var h = document.getElementsByTagName("body")[0].offsetHeight;
+		if ( h > w )
+		{
+			var r = w / 6 ;
+			this.w = r;
+			this.h = r
+		}
+		else
+		{
+			var r = h / 6 ;
+			this.w = r;
+			this.h = r;				
+		}
+			
+
+		if ( params == undefined )
+		{
+			this.type = "stick";
+			this.x = w - 1.1*this.w;
+			this.y = h  -	1.1*this.h;
+		}
+		else
+		{
+			this.x = params.x;
+			this.y = params.y;
+			this.type = params.type;
+		}
+		
+
+		var px = this.x;
+		var py = this.y;
+		var pw = this.w;
+		var ph = this.h;
+
+		this.stickground = document.createElement('div');
+		this.stickground.id= "stick-ground-"+getRandomId();
+		this.stickground.style.borderRadius = this.w/2+4+"px";
+		this.stickground.style.border = "solid 4px #999";
+		this.stickground.style.background= "rgba(0,0,0,0.0)";
+		this.stickground.style.position = "fixed";
+		this.stickground.style.top = (this.y-(this.h/2+4))+"px";
+		this.stickground.style.left = (this.x-(this.w/2+4))+"px";
+		this.stickground.style.width = this.w+"px";
+		this.stickground.style.height = this.h+"px";
+		document.getElementsByTagName('body')[0].appendChild(this.stickground);
+
+		this.stick = document.createElement('div');
+		this.stick.id= "stick"+getRandomId();
+		this.stick.style.borderRadius = this.w/2+4+"px";
+		this.stick.style.border = "solid 4px #ddd";
+		this.stick.style.background= "rgba(0,0,0,0.0)";
+		this.stick.style.position = "fixed";
+		this.stick.style.top = (this.y-(this.h/2+4))+"px";
+		this.stick.style.left = (this.x-(this.w/2+4))+"px";
+		this.stick.style.width = this.w+"px";
+		this.stick.style.height = this.h+"px";
+		document.getElementsByTagName('body')[0].appendChild(this.stick);
+
+
+		var s = this.stick;
+
+
+		this.stick.addEventListener("touchmove",  function (evt) {
+		
+			var v = vectfromvertices([px, py, 0], [evt.touches[0].clientX, evt.touches[0].clientY, 0]);
+			var intensity = v.n/50*15;
+			if ( intensity > 15 ) intensity = 15;
+
+			s.style.border = "solid 4px #ddd";
+			s.style.background = "#eee";
+
+			s.style.position = "fixed";
+			s.style.top = (py-ph/2-5)+v.s[1]*intensity+"px";
+			s.style.left = (px-pw/2-4)+v.s[0]*intensity+"px";
+		
+		}, false);;
+		this.stick.addEventListener("touchstart",  function (evt) {
+			evt.preventDefault();
+			var v = vectfromvertices([px, py, 0], [evt.touches[0].clientX, evt.touches[0].clientY, 0]);
+			var intensity = v.n/50*15;
+			if ( intensity > 15 ) intensity = 15;
+
+			s.style.border = "solid 4px #ddd";
+			s.style.background = "#eee";
+
+			s.style.position = "fixed";
+			s.style.top = (py-ph/2-5)+v.s[1]*intensity+"px";
+			s.style.left = (px-pw/2-4)+v.s[0]*intensity+"px";
+		
+		}, false);;
+		this.stick.addEventListener("touchend",  function (evt) {
+		
+			s.style.border = "solid 4px #ddd";
+			s.style.background = "rgba(255,255,255,0.01)";
+			s.style.top = (py-ph/2-5)+"px";
+			s.style.left = (px-pw/2-4)+"px";
+		
+		}, false);;
+	}
+	get value()
+	{
+		//return this.value;
+	}
+}
+
+
+
+
+/** @constructor */
+
+
 function vectfromvertices(a, b) {
 	if (a[0] == b[0] && a[1] == b[1] && a[2] == b[2])
 		return new Vector([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 0.0);
@@ -36,99 +146,6 @@ function vectfromvertices(a, b) {
 function scalarproduct(a, b) {
     return a[0] * b[0] + a[1] * b[1]
 }
-function run()
-{
-	var flame = document.getElementById("flame");
-	var flaminate = new Flaminate(flame);
-	
-
-	
-	
-	var stick = document.getElementById("stick-1");
-	stick.addEventListener("touchstart", handleStart, false);;
-	stick.addEventListener("touchend", handleEnd, false);;
-	stick.addEventListener("mouseenter", handleStart, false);;
-	stick.addEventListener("mouseleave", handleEnd, false);;
-	stick.addEventListener("touchmove", handleMove, false);;
-	
-	
-	
-//	stick.addEventListener("", handleStart, false);;
-	var holdStick = false;
-	
-	var holdstart = {x: 0.0, y: 0.0 };
-	
-	function handleStart (evt)
-	{
-		holdStick = true;
-		$('#stick-1').css('background-color', '#ccc');
-		$('#stick-1').css('border', 'solid 4px #aaa');	
-		$('#stick-1	').css('display', 'block');
-		console.log(evt);
-		holdstart.x = evt.touches[0].clientX;
-		holdstart.y = evt.touches[0].clientY;
-		
-		
-	}
-	function handleMove (evt)
-	{
-		holdStick = true;
-		$('#stick-1').css('background-color', '#ccc');
-		$('#stick-1').css('border', 'solid 2px #aaa');	
-
-		$('#stick-1	').css('display', 'block');
-		$('#stick-1-son').css('display', 'block');
-		$('#stick-1-son').css('top', (evt.touches[0].clientY-15)+'px');
-		$('#stick-1-son').css('left', (evt.touches[0].clientX-15)+'px');
-		
-		var v = vectfromvertices([holdstart.x, holdstart.y, 0], [evt.touches[0].clientX, evt.touches[0].clientY, 0]);
-		console.log(v);
-
-		var intensity = v.n/50*15;
-		if ( intensity > 15 ) intensity = 15;
-		var top = $( "#stick-1-ground" ).position().top+(v.s[1]*intensity);
-		var left = $( "#stick-1-ground" ).position().left+(v.s[0]*intensity);
-		
-		
-		$('#stick-1').css('top', top);
-			$('#stick-1').css('left', left);
-
-		
-		console.log("\n"+evt.touches[0].clientX.toFixed(1)+" | "+evt.touches[0].clientY.toFixed(1)+"\n"+
-		holdstart.x+" | "+holdstart.y);
-		
-		
-	}
-	
-	
-	function handleEnd (evt)
-	{
-		$('#stick-1').css('background-color', '#aaa');
-		$('#stick-1').css('border', 'solid 4px #aaa');	
-		var top = $( "#stick-1-ground" ).position().top;
-		var left = $( "#stick-1-ground" ).position().left;
-		
-		
-		$('#stick-1').css('top', top);
-			$('#stick-1').css('left', left);
-		
-		
-		$('#stick-1	').css('display', 'block');
-		$('#stick-1-son').css('display', 'none');
-		console.log(evt);
-	}
-	
-	
-}
-    $(window).on("load",  run());
-
- /* el.addEventListener("touchend", handleEnd, false);
-  el.addEventListener("touchcancel", handleCancel, false);
-  el.addEventListener("touchleave", handleLeave, false);
-  el.addEventListener("touchmove", handleMove, false);*/
-
-
-
 
 
 
