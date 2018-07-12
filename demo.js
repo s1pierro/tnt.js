@@ -23,7 +23,7 @@ function Flaminate (flame)
 	var flaminate = new Flaminate(flame);
 	
 
-	var stick = new TNT({x: 100, y:100, type: "stick"});
+	var stick = new TNT({x: 0.1, y:0.8, type: "stick"});
 	var stick2 = new TNT();
 
 

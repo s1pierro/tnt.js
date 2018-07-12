@@ -39,8 +39,8 @@ class TNT {
 		}
 		else
 		{
-			this.x = params.x;
-			this.y = params.y;
+			this.x = params.x*w;
+			this.y = params.y*h;
 			this.type = params.type;
 		}
 		
@@ -76,7 +76,7 @@ class TNT {
 
 
 		var s = this.stick;
-		var nt = "";
+		var nt = 0;
 		var target = "";
 
 		this.stick.addEventListener("touchmove",  function (evt) {
