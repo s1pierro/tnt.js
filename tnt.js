@@ -154,6 +154,13 @@ class TouchEngine {
     /** @private @type {number} */
     this._lastPinchScale = 1;
 
+    /**
+     * Timestamp of the last touchend/touchcancel, used to suppress ghost mouse
+     * clicks that mobile browsers emit ~300ms after a touch gesture.
+     * @private @type {number}
+     */
+    this._lastTouchEnd = -Infinity;
+
     this._bind();
   }
 
@@ -234,8 +241,8 @@ class TouchEngine {
     const opt = { passive: false };
     this.el.addEventListener('touchstart',  e => this._start(e), opt);
     this.el.addEventListener('touchmove',   e => this._move(e),  opt);
-    this.el.addEventListener('touchend',    e => this._end(e),   opt);
-    this.el.addEventListener('touchcancel', e => this._end(e),   opt);
+    this.el.addEventListener('touchend',    e => { this._lastTouchEnd = performance.now(); this._end(e); },   opt);
+    this.el.addEventListener('touchcancel', e => { this._lastTouchEnd = performance.now(); this._end(e); },   opt);
     this.el.addEventListener('mousedown',   e => this._mouseStart(e));
     window.addEventListener('mousemove',    e => this._mouseMove(e));
     window.addEventListener('mouseup',      e => this._mouseEnd(e));
@@ -264,7 +271,7 @@ class TouchEngine {
     if (this.state === 'idle' && this.touchCount === 1) {
       const t0 = e.changedTouches[0];
       this.firstTouchId = t0.identifier;
-      this.gestureStartStamp = Date.now();
+      this.gestureStartStamp = performance.now();
       this.cursor.x = t0.clientX;
       this.cursor.y = t0.clientY;
       this.cursor.active = true;
@@ -400,7 +407,7 @@ class TouchEngine {
     // Pinch end on any lift while pinching
     if (this.state === 'pinching') {
       const scale    = this._lastPinchScale;
-      const duration = this.gestureStartStamp ? Date.now() - this.gestureStartStamp : 0;
+      const duration = this.gestureStartStamp ? performance.now() - this.gestureStartStamp : 0;
       this._toIdle();
       this.emit('pinchEnd', { scale, duration, state: 'idle' });
       return;
@@ -408,7 +415,7 @@ class TouchEngine {
 
     // Single-touch gesture completion
     if (this.touchCount === 0 && this.gestureStartStamp !== null) {
-      const dt         = Date.now() - this.gestureStartStamp;
+      const dt         = performance.now() - this.gestureStartStamp;
       const finalState = this.state;
       const t0         = e.changedTouches[0];
       const x          = t0.clientX;
@@ -436,6 +443,8 @@ class TouchEngine {
   /** @private */
   _mouseStart(e) {
     if (this.state !== 'idle') return;
+    // Ignore ghost clicks emitted by mobile browsers after touch events
+    if (performance.now() - this._lastTouchEnd < 500) return;
     this._start({ changedTouches: [{ identifier: -1, clientX: e.clientX, clientY: e.clientY }] });
   }
 
