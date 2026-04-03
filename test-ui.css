@@ -1,0 +1,296 @@
+/* ─── Test Panel UI ─────────────────────────────────────────────── */
+#test-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 100;
+  background: #e94560;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: monospace;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#test-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  max-width: 360px;
+  height: 100%;
+  background: rgba(16, 16, 32, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  border-left: 1px solid #e9456044;
+}
+
+#test-panel.open {
+  transform: translateX(0);
+}
+
+#test-header {
+  padding: 12px;
+  border-bottom: 1px solid #ffffff11;
+  flex-shrink: 0;
+}
+
+#test-status {
+  font-size: 13px;
+  font-family: monospace;
+  color: #e0e0e0;
+  margin-bottom: 8px;
+}
+
+#test-stop {
+  display: none;
+  width: 100%;
+  background: #e94560;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  font-family: monospace;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#test-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.test-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #ffffff0a;
+  border: 1px solid #ffffff15;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.test-btn.active {
+  background: #e9456022;
+  border-color: #e94560;
+}
+
+.test-btn:active {
+  background: #ffffff15;
+}
+
+.test-name {
+  display: block;
+  font-size: 13px;
+  font-weight: bold;
+  color: #e0e0e0;
+  font-family: monospace;
+}
+
+.test-desc {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+  font-family: system-ui, sans-serif;
+}
+
+#test-log-container {
+  flex-shrink: 0;
+  height: 180px;
+  border-top: 1px solid #ffffff11;
+  display: flex;
+  flex-direction: column;
+}
+
+#test-log-label {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #888;
+  background: #00000033;
+  flex-shrink: 0;
+}
+
+#test-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #aaa;
+  line-height: 1.5;
+}
+
+.log-entry {
+  border-bottom: 1px solid #ffffff08;
+  padding: 2px 0;
+}
+
+.log-ts {
+  color: #e94560;
+  margin-right: 6px;
+}
+
+/* ─── Settings Sliders ──────────────────────────────────────────── */
+#test-settings {
+  padding: 10px 12px;
+  border-bottom: 1px solid #ffffff11;
+  flex-shrink: 0;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.setting-row:last-child {
+  margin-bottom: 0;
+}
+
+.setting-label {
+  font-size: 11px;
+  font-family: monospace;
+  color: #aaa;
+  min-width: 60px;
+}
+
+.setting-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #ffffff15;
+  outline: none;
+  touch-action: manipulation;
+}
+
+.setting-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e94560;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+.setting-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e94560;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+.setting-value {
+  font-size: 11px;
+  font-family: monospace;
+  color: #e94560;
+  min-width: 42px;
+  text-align: right;
+}
+
+/* ─── Color Picker ──────────────────────────────────────────────── */
+.setting-color {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 28px;
+  border: 2px solid #ffffff22;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.setting-color::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.setting-color::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+/* ─── Segmented Control ─────────────────────────────────────────── */
+.setting-segmented {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.seg-btn {
+  flex: 1;
+  background: #ffffff0a;
+  border: 1px solid #ffffff15;
+  border-radius: 6px;
+  padding: 6px 0;
+  font-size: 16px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.seg-btn.active {
+  background: #e9456033;
+  border-color: #e94560;
+}
+
+/* ─── Toggle Switch ─────────────────────────────────────────────── */
+.setting-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.setting-toggle input {
+  display: none;
+}
+
+.toggle-track {
+  width: 40px;
+  height: 22px;
+  background: #ffffff15;
+  border-radius: 11px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #888;
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.setting-toggle input:checked + .toggle-track {
+  background: #e94560;
+}
+
+.setting-toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+  background: #fff;
+}

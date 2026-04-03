@@ -1,0 +1,83 @@
+- Événements internes -
+
+_touchCountChange
+(ecoute les evenement, actualise le nombre de touches réel)
+n -> n-1
+  if state = grabbing -> fire releaseCursor event, switch to idle state
+              {releasePositioņ, activatedAtPosition, from start to end vector}
+  if state = pinching -> fire pinchEnd event, switch to idle state
+              {scale, duration)
+  if state = tapping -> fire tap event, switch to idle state
+              {normalised duration(from min to max), x, y}
+  if state = pressing -> fire press event, switch to idle state
+              {normalised duration(from min to max), x, y}
+  if state = longPressing -> fire longPress event, switch to idle state
+              {ms duration after min, x, y, precision}
+  ensuite 
+  gestureStartStamp = null (timestamp)
+  _touchCount = real value from system event
+  
+0 -> 1 
+  
+  gestureStartStamp = now (timestamp)
+  _touchCount = 1
+  state = tapping
+
+- evenements externes -
+
+  Chaque changement d'état.
+  
+  tap, press, longPress, activateCursor, moveCursor, releaseCursor, pinchStart, pinchChange, pinchEnd
+  
+
+
+- États internes -
+
+0. idle
+=======
+
+état initial
+------------
+
+touch Count === 0
+gestureStartStamp = null (timestamp)
+
+
+**below cursorActivate min activation distance, moving is alowed during tap/press/longpress, max delta will be attached to final event as "precision" **
+
+1. tapping
+==========
+  start timeout timer to switch to pressing state if tapping state is still active.
+  
+2. pressing
+==========
+  start timeout timer to switch to longPressing state if tapping state is still active.
+  
+3. longPressing
+==========
+  no timer needed, event will be emmited at release, state switched to idle.
+  
+4. grabbing
+===========
+
+  requiert:
+   - l'état tapping
+   - mouvement >= longueur bras
+   - _touchCount === 1
+   
+  produit:
+   - silent tapping cancel
+   - affichage du curseur déporté
+ 
+5. pinching
+===========
+
+  requiert:
+   - l'état tapping
+   - _touchCount === 2
+   
+  produit:
+   - silent tapping cancel
+   - affichage du point médian ( responsabilité DOM interne au module )
+   
+ 
