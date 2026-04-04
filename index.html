@@ -78,6 +78,26 @@
   }
   #rod.visible { opacity: 1; }
 
+  #dot1, #dot2 {
+    position: absolute;
+    border-radius: 50%;
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    z-index: 2;
+  }
+
+  #multi-line {
+    position: absolute;
+    height: 2px;
+    transform-origin: left center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    z-index: 1;
+  }
+
   .pulse {
     position: absolute;
     border-radius: 50%;
@@ -134,6 +154,7 @@
   #state-badge.pressing      { background: #b58900; color: #000; }
   #state-badge.longPressing  { background: #d33682; color: #fff; }
   #state-badge.pinching      { background: #859900; color: #000; }
+  #state-badge.catching      { background: #08f;    color: #fff; }
 
   /* Statut live : valeurs continues mises à jour en place */
   #event-live {
@@ -213,6 +234,7 @@
   .hist-badge.longPressing { background: #d33682; color: #fff; }
   .hist-badge.grabbing     { background: #2aa198; color: #000; }
   .hist-badge.pinching     { background: #859900; color: #000; }
+  .hist-badge.catching     { background: #08f;    color: #fff; }
 
   .hist-dur {
     color: #555;
@@ -257,6 +279,9 @@
   <div id="contact"></div>
   <div id="cursor"></div>
   <div id="rod"></div>
+  <div id="dot1"></div>
+  <div id="dot2"></div>
+  <div id="multi-line"></div>
 </div>
 
 <div id="panel">
@@ -285,16 +310,6 @@
   <label>
     Distance
     <input id="dist" type="range" min="20" max="200" value="100">
-  </label>
-
-  <label>
-    Friction
-    <input id="friction" type="range" min="0.80" max="0.99" step="0.01" value="0.92">
-  </label>
-
-  <label>
-    Stiffness
-    <input id="stiffness" type="range" min="0.05" max="0.5" step="0.01" value="0.2">
   </label>
 
   <h3>⏱ Temporel</h3>
@@ -342,9 +357,12 @@ document.addEventListener('selectstart', e => e.preventDefault());
 document.addEventListener('dblclick', e => e.preventDefault());
 
 const stage = document.getElementById('stage');
-const contactEl = document.getElementById('contact');
-const cursorEl = document.getElementById('cursor');
-const rodEl = document.getElementById('rod');
+const contactEl   = document.getElementById('contact');
+const cursorEl    = document.getElementById('cursor');
+const rodEl       = document.getElementById('rod');
+const dot1El      = document.getElementById('dot1');
+const dot2El      = document.getElementById('dot2');
+const multiLineEl = document.getElementById('multi-line');
 const stateBadge  = document.getElementById('state-badge');
 const eventLiveEl    = document.getElementById('event-live');
 const eventHistoryEl = document.getElementById('event-history');
@@ -358,8 +376,6 @@ const DEFAULTS = {
   rodEnabled: true,
   pulseEnabled: true,
   dist: 60,
-  friction: 0,
-  stiffness: 0.5,
   tapMax: 400,
   pressMin: 700,
   pressMax: 1500,
@@ -388,11 +404,7 @@ const engine = new TouchEngine(stage, {
   longPressMin: cfg.longPressMin,
 });
 
-const kine = new CursorKinematics({
-  dist: cfg.dist,
-  friction: cfg.friction,
-  stiffness: cfg.stiffness,
-});
+const kine = new CursorKinematics({ dist: cfg.dist });
 
 function save() {
   localStorage.setItem('tnt-cfg', JSON.stringify(cfg));
@@ -409,16 +421,14 @@ function bind(id, key, apply) {
 }
 
 function applyAll() {
-  contactSize.value = cfg.contactSize;
-  cursorSize.value = cfg.cursorSize;
+  contactSize.value  = cfg.contactSize;
+  cursorSize.value   = cfg.cursorSize;
   rodEnabled.checked = cfg.rodEnabled;
   pulseEnabled.checked = cfg.pulseEnabled;
-  dist.value = cfg.dist;
-  friction.value = cfg.friction;
-  stiffness.value = cfg.stiffness;
-  tapMax.value = cfg.tapMax;
-  pressMin.value = cfg.pressMin;
-  pressMax.value = cfg.pressMax;
+  dist.value         = cfg.dist;
+  tapMax.value       = cfg.tapMax;
+  pressMin.value     = cfg.pressMin;
+  pressMax.value     = cfg.pressMax;
   longPressMin.value = cfg.longPressMin;
 }
 
@@ -436,12 +446,7 @@ bind('rodEnabled', 'rodEnabled', v => {
   if (cfg.pulseEnabled) rodEl.style.opacity = '';
 });
 bind('pulseEnabled', 'pulseEnabled', () => {});
-bind('dist', 'dist', v => {
-  kine.dist    = v;
-  engine.dist  = v;
-});
-bind('friction',     'friction',     v => { kine.friction        = v; });
-bind('stiffness',    'stiffness',    v => { kine.stiffness       = v; });
+bind('dist', 'dist', v => { kine.dist = v; engine.dist = v; });
 bind('tapMax',       'tapMax',       v => { engine.tapMax        = v; });
 bind('pressMin',     'pressMin',     v => { engine.pressMin      = v; });
 bind('pressMax',     'pressMax',     v => { engine.pressMax      = v; });
@@ -491,19 +496,53 @@ btnClearHist.addEventListener('click', () => {
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
+function showMulti(color, size) {
+  dot1El.style.width      = size + 'px';
+  dot1El.style.height     = size + 'px';
+  dot2El.style.width      = size + 'px';
+  dot2El.style.height     = size + 'px';
+  dot1El.style.background = color;
+  dot2El.style.background = color;
+  multiLineEl.style.background = color;
+  dot1El.style.opacity      = '1';
+  dot2El.style.opacity      = '1';
+  multiLineEl.style.opacity = '1';
+}
+
+function hideMulti() {
+  dot1El.style.opacity      = '0';
+  dot2El.style.opacity      = '0';
+  multiLineEl.style.opacity = '0';
+}
+
+function renderMulti(x1, y1, x2, y2) {
+  dot1El.style.left = x1 + 'px';
+  dot1El.style.top  = y1 + 'px';
+  dot2El.style.left = x2 + 'px';
+  dot2El.style.top  = y2 + 'px';
+  const dx    = x2 - x1, dy = y2 - y1;
+  const len   = Math.hypot(dx, dy);
+  const angle = Math.atan2(dy, dx);
+  multiLineEl.style.left      = x1 + 'px';
+  multiLineEl.style.top       = y1 + 'px';
+  multiLineEl.style.width     = len + 'px';
+  multiLineEl.style.transform = `rotate(${angle}rad)`;
+}
+
 function fmtEvent(name, data) {
   let s = `<span class="ev-label">${name}</span>`;
   if (!data) return s;
-  if (data.state     !== undefined) s += ` <span class="ev-state">[${data.state}]</span>`;
-  if (data.intensity !== undefined) s += ` <span class="ev-state">i:${data.intensity.toFixed(2)}</span>`;
-  if (data.msAfterMin!== undefined) s += ` <span class="ev-state">+${data.msAfterMin}ms</span>`;
-  if (data.precision !== undefined) s += ` <span class="ev-state">p:${data.precision|0}</span>`;
-  if (data.x         !== undefined) s += ` x:${data.x|0}`;
-  if (data.y         !== undefined) s += ` y:${data.y|0}`;
-  if (data.touchX    !== undefined) s += ` tx:${data.touchX|0}`;
-  if (data.touchY    !== undefined) s += ` ty:${data.touchY|0}`;
-  if (data.scale     !== undefined) s += ` sc:${data.scale.toFixed(2)}`;
-  if (data.duration  !== undefined) s += ` <span class="ev-state">${data.duration}ms</span>`;
+  if (data.state      !== undefined) s += ` <span class="ev-state">[${data.state}]</span>`;
+  if (data.intensity  !== undefined) s += ` <span class="ev-state">i:${data.intensity.toFixed(2)}</span>`;
+  if (data.msAfterMin !== undefined) s += ` <span class="ev-state">+${data.msAfterMin}ms</span>`;
+  if (data.precision  !== undefined) s += ` <span class="ev-state">p:${data.precision|0}</span>`;
+  if (data.x          !== undefined) s += ` x:${data.x|0}`;
+  if (data.y          !== undefined) s += ` y:${data.y|0}`;
+  if (data.touchX     !== undefined) s += ` tx:${data.touchX|0}`;
+  if (data.touchY     !== undefined) s += ` ty:${data.touchY|0}`;
+  if (data.x1         !== undefined) s += ` (${data.x1|0},${data.y1|0})→(${data.x2|0},${data.y2|0})`;
+  if (data.scale      !== undefined) s += ` sc:${data.scale.toFixed(2)}`;
+  if (data.duration   !== undefined) s += ` <span class="ev-state">${data.duration|0}ms</span>`;
   return s;
 }
 
@@ -599,13 +638,38 @@ engine.on('cancelCursor', e => {
   kine.reset();
 });
 
-engine.on('cancel',      e => showEvent('cancel', e));
-engine.on('tap',         e => showEvent('tap', e));
-engine.on('press',       e => showEvent('press', e));
-engine.on('longPress',   e => showEvent('longPress', e));
-engine.on('pinchStart',  e => showEvent('pinchStart', e));
-engine.on('pinchChange', e => showEvent('pinchChange', e, true));
-engine.on('pinchEnd',    e => showEvent('pinchEnd', e));
+engine.on('cancel',    e => showEvent('cancel', e));
+engine.on('tap',       e => showEvent('tap', e));
+engine.on('press',     e => showEvent('press', e));
+engine.on('longPress', e => showEvent('longPress', e));
+
+engine.on('pinchStart',  e => {
+  showEvent('pinchStart', e);
+  showMulti('#f80', cfg.contactSize);
+  renderMulti(e.x1, e.y1, e.x2, e.y2);
+});
+engine.on('pinchChange', e => {
+  showEvent('pinchChange', e, true);
+  renderMulti(e.x1, e.y1, e.x2, e.y2);
+});
+engine.on('pinchEnd', e => {
+  showEvent('pinchEnd', e);
+  hideMulti();
+});
+
+engine.on('catchAt', e => {
+  showEvent('catchAt', e);
+  showMulti('#08f', cfg.contactSize);
+  renderMulti(e.x1, e.y1, e.x2, e.y2);
+});
+engine.on('catchMove', e => {
+  showEvent('catchMove', e, true);
+  renderMulti(e.x1, e.y1, e.x2, e.y2);
+});
+engine.on('catchDrop', e => {
+  showEvent('catchDrop', e);
+  hideMulti();
+});
 
 const exportCode = document.getElementById('export-code');
 const btnExport = document.getElementById('btn-export');
@@ -618,11 +682,7 @@ function buildExport() {
     pressMax: cfg.pressMax,
     longPressMin: cfg.longPressMin,
   };
-  const kineOpts = {
-    dist: cfg.dist,
-    friction: cfg.friction,
-    stiffness: cfg.stiffness,
-  };
+  const kineOpts = { dist: cfg.dist };
   const visualOpts = {
     contactSize: cfg.contactSize,
     cursorSize: cfg.cursorSize,
@@ -643,8 +703,7 @@ new CursorKinematics(${JSON.stringify(kineOpts, null, 2)});
 
 // TouchOverlay (full overlay with DOM)
 new TouchOverlay(element, {
-  ...${JSON.stringify(visualOpts, null, 2)},
-  ...${JSON.stringify({ dist: cfg.dist, friction: cfg.friction, stiffness: cfg.stiffness }, null, 2)},
+  ...${JSON.stringify({ ...visualOpts, dist: cfg.dist }, null, 2)},
 });` + note;
 }
 
