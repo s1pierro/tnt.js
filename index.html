@@ -42,87 +42,6 @@
     overscroll-behavior: none;
   }
 
-  #contact {
-    position: absolute;
-    background: #f00;
-    border-radius: 50%;
-    transform: translate(-50%,-50%);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.1s;
-    z-index: 2;
-  }
-  #contact.visible { opacity: 1; }
-
-  #cursor {
-    position: absolute;
-    background: #0f0;
-    border-radius: 50%;
-    transform: translate(-50%,-50%);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.1s;
-    z-index: 3;
-  }
-  #cursor.visible { opacity: 1; }
-
-  #rod {
-    position: absolute;
-    height: 2px;
-    background: #888;
-    transform-origin: left center;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.1s;
-    z-index: 1;
-  }
-  #rod.visible { opacity: 1; }
-
-  #dot1, #dot2 {
-    position: absolute;
-    border-radius: 50%;
-    transform: translate(-50%,-50%);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.1s;
-    z-index: 2;
-  }
-
-  #dot-center {
-    position: absolute;
-    border-radius: 50%;
-    transform: translate(-50%,-50%);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.1s;
-    z-index: 3;
-    border: 2px solid;
-    background: transparent;
-  }
-
-  #multi-line {
-    position: absolute;
-    height: 2px;
-    transform-origin: left center;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.1s;
-    z-index: 1;
-  }
-
-  .pulse {
-    position: absolute;
-    border-radius: 50%;
-    border: 2px solid #0f0;
-    transform: translate(-50%,-50%);
-    pointer-events: none;
-    animation: pulse-out 0.5s ease-out forwards;
-  }
-
-  @keyframes pulse-out {
-    from { opacity: 0.8; transform: translate(-50%,-50%) scale(1); }
-    to   { opacity: 0;   transform: translate(-50%,-50%) scale(2.8); }
-  }
 
   #panel {
     width: 260px;
@@ -287,15 +206,7 @@
 
 <body>
 
-<div id="stage">
-  <div id="contact"></div>
-  <div id="cursor"></div>
-  <div id="rod"></div>
-  <div id="dot1"></div>
-  <div id="dot2"></div>
-  <div id="multi-line"></div>
-  <div id="dot-center"></div>
-</div>
+<div id="stage"></div>
 
 <div id="panel">
   <h3>⚙️ Apparence</h3>
@@ -363,21 +274,14 @@
 </div>
 
 <script type="module">
-import { TouchEngine, CursorKinematics } from './tnt.js';
+import { TouchOverlay } from './tnt.js';
 
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
 document.addEventListener('dblclick', e => e.preventDefault());
 
-const stage = document.getElementById('stage');
-const contactEl   = document.getElementById('contact');
-const cursorEl    = document.getElementById('cursor');
-const rodEl       = document.getElementById('rod');
-const dot1El      = document.getElementById('dot1');
-const dot2El      = document.getElementById('dot2');
-const multiLineEl = document.getElementById('multi-line');
-const dotCenterEl = document.getElementById('dot-center');
-const stateBadge  = document.getElementById('state-badge');
+const stage      = document.getElementById('stage');
+const stateBadge = document.getElementById('state-badge');
 const eventLiveEl    = document.getElementById('event-live');
 const eventHistoryEl = document.getElementById('event-history');
 const btnClearEvents = document.getElementById('btn-clear-events');
@@ -398,27 +302,20 @@ const DEFAULTS = {
 
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('tnt-cfg') || '{}') };
 
-contactEl.style.width = cfg.contactSize + 'px';
-contactEl.style.height = cfg.contactSize + 'px';
-cursorEl.style.width = cfg.cursorSize + 'px';
-cursorEl.style.height = cfg.cursorSize + 'px';
-
-
-
-// normalized intensity (0-1):
-// tap:       dt / tapMax
-// press:     (dt - pressMin) / (pressMax - pressMin)
-// longPress: clamp((dt - longPressMin) / longPressMin, 0, 1)
-
-const engine = new TouchEngine(stage, {
-  dist: cfg.dist,
-  tapMax: cfg.tapMax,
-  pressMin: cfg.pressMin,
-  pressMax: cfg.pressMax,
+const overlay = new TouchOverlay(stage, {
+  dist:         cfg.dist,
+  tapMax:       cfg.tapMax,
+  pressMin:     cfg.pressMin,
+  pressMax:     cfg.pressMax,
   longPressMin: cfg.longPressMin,
+  contactSize:  cfg.contactSize,
+  cursorSize:   cfg.cursorSize,
+  rodEnabled:   cfg.rodEnabled,
+  pulseEnabled: cfg.pulseEnabled,
 });
 
-const kine = new CursorKinematics({ dist: cfg.dist });
+const engine = overlay.engine;
+const kine   = overlay.kine;
 
 function save() {
   localStorage.setItem('tnt-cfg', JSON.stringify(cfg));
@@ -448,19 +345,11 @@ function applyAll() {
 
 applyAll();
 
-bind('contactSize', 'contactSize', v => {
-  contactEl.style.width = v + 'px';
-  contactEl.style.height = v + 'px';
-});
-bind('cursorSize', 'cursorSize', v => {
-  cursorEl.style.width = v + 'px';
-  cursorEl.style.height = v + 'px';
-});
-bind('rodEnabled', 'rodEnabled', v => {
-  if (cfg.pulseEnabled) rodEl.style.opacity = '';
-});
-bind('pulseEnabled', 'pulseEnabled', () => {});
-bind('dist', 'dist', v => { kine.dist = v; engine.dist = v; });
+bind('contactSize',  'contactSize',  v => { overlay.contactSize  = v; });
+bind('cursorSize',   'cursorSize',   v => { overlay.cursorSize   = v; });
+bind('rodEnabled',   'rodEnabled',   v => { overlay.rodEnabled   = v; });
+bind('pulseEnabled', 'pulseEnabled', v => { overlay.pulseEnabled = v; });
+bind('dist', 'dist', v => { engine.dist = v; kine.dist = v; });
 bind('tapMax',       'tapMax',       v => { engine.tapMax        = v; });
 bind('pressMin',     'pressMin',     v => { engine.pressMin      = v; });
 bind('pressMax',     'pressMax',     v => { engine.pressMax      = v; });
@@ -510,46 +399,6 @@ btnClearHist.addEventListener('click', () => {
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
-function showMulti(color, size) {
-  dot1El.style.width      = size + 'px';
-  dot1El.style.height     = size + 'px';
-  dot2El.style.width      = size + 'px';
-  dot2El.style.height     = size + 'px';
-  const cSize = Math.round(size * 0.6);
-  dotCenterEl.style.width       = cSize + 'px';
-  dotCenterEl.style.height      = cSize + 'px';
-  dotCenterEl.style.borderColor = color;
-  dot1El.style.background       = color;
-  dot2El.style.background       = color;
-  multiLineEl.style.background  = color;
-  dot1El.style.opacity      = '1';
-  dot2El.style.opacity      = '1';
-  multiLineEl.style.opacity = '1';
-  dotCenterEl.style.opacity = '1';
-}
-
-function hideMulti() {
-  dot1El.style.opacity      = '0';
-  dot2El.style.opacity      = '0';
-  multiLineEl.style.opacity = '0';
-  dotCenterEl.style.opacity = '0';
-}
-
-function renderMulti(x1, y1, x2, y2) {
-  dot1El.style.left = x1 + 'px';
-  dot1El.style.top  = y1 + 'px';
-  dot2El.style.left = x2 + 'px';
-  dot2El.style.top  = y2 + 'px';
-  dotCenterEl.style.left = ((x1 + x2) / 2) + 'px';
-  dotCenterEl.style.top  = ((y1 + y2) / 2) + 'px';
-  const dx    = x2 - x1, dy = y2 - y1;
-  const len   = Math.hypot(dx, dy);
-  const angle = Math.atan2(dy, dx);
-  multiLineEl.style.left      = x1 + 'px';
-  multiLineEl.style.top       = y1 + 'px';
-  multiLineEl.style.width     = len + 'px';
-  multiLineEl.style.transform = `rotate(${angle}rad)`;
-}
 
 function fmtEvent(name, data) {
   let s = `<span class="ev-label">${name}</span>`;
@@ -600,98 +449,23 @@ btnClearEvents.addEventListener('click', () => {
   eventLiveEl.innerHTML    = '';
 });
 
-function render(tx, ty) {
-  contactEl.style.left = tx + 'px';
-  contactEl.style.top  = ty + 'px';
-  cursorEl.style.left = kine.x + 'px';
-  cursorEl.style.top  = kine.y + 'px';
-
-  if (cfg.rodEnabled) {
-    const dx = kine.x - tx;
-    const dy = kine.y - ty;
-    const len = Math.hypot(dx, dy);
-    const angle = Math.atan2(dy, dx);
-    rodEl.style.left = tx + 'px';
-    rodEl.style.top  = ty + 'px';
-    rodEl.style.width = len + 'px';
-    rodEl.style.transform = `rotate(${angle}rad)`;
-  }
-}
-
-engine.on('cursorActivate', e => {
-  showEvent('cursorActivate', e);
-  kine.activate(e.x, e.y, e.touchX, e.touchY);
-  contactEl.classList.add('visible');
-  cursorEl.classList.add('visible');
-  if (cfg.rodEnabled) rodEl.classList.add('visible');
-  render(e.touchX, e.touchY);
-
-  if (cfg.pulseEnabled) {
-    const pulse = document.createElement('div');
-    pulse.className = 'pulse';
-    pulse.style.left = e.x + 'px';
-    pulse.style.top = e.y + 'px';
-    pulse.style.width = cfg.cursorSize * 3 + 'px';
-    pulse.style.height = cfg.cursorSize * 3 + 'px';
-    stage.appendChild(pulse);
-    pulse.addEventListener('animationend', () => pulse.remove(), { once: true });
-  }
-});
-
-engine.on('cursorMove', e => {
-  showEvent('cursorMove', e, true);
-  kine.update(e.touchX, e.touchY);
-  render(e.touchX, e.touchY);
-});
-
-engine.on('cursorRelease', e => {
-  showEvent('cursorRelease', e);
-  contactEl.classList.remove('visible');
-  cursorEl.classList.remove('visible');
-  rodEl.classList.remove('visible');
-  kine.reset();
-});
-
-engine.on('cancelCursor', e => {
-  showEvent('cancelCursor', e);
-  contactEl.classList.remove('visible');
-  cursorEl.classList.remove('visible');
-  rodEl.classList.remove('visible');
-  kine.reset();
-});
+engine.on('cursorActivate', e => showEvent('cursorActivate', e));
+engine.on('cursorMove',    e => showEvent('cursorMove', e, true));
+engine.on('cursorRelease', e => showEvent('cursorRelease', e));
+engine.on('cancelCursor',  e => showEvent('cancelCursor', e));
 
 engine.on('cancel',    e => showEvent('cancel', e));
 engine.on('tap',       e => showEvent('tap', e));
 engine.on('press',     e => showEvent('press', e));
 engine.on('longPress', e => showEvent('longPress', e));
 
-engine.on('pinchStart',  e => {
-  showEvent('pinchStart', e);
-  showMulti('#f80', cfg.contactSize);
-  renderMulti(e.x1, e.y1, e.x2, e.y2);
-});
-engine.on('pinchChange', e => {
-  showEvent('pinchChange', e, true);
-  renderMulti(e.x1, e.y1, e.x2, e.y2);
-});
-engine.on('pinchEnd', e => {
-  showEvent('pinchEnd', e);
-  hideMulti();
-});
+engine.on('pinchStart',  e => showEvent('pinchStart', e));
+engine.on('pinchChange', e => showEvent('pinchChange', e, true));
+engine.on('pinchEnd',    e => showEvent('pinchEnd', e));
 
-engine.on('catchAt', e => {
-  showEvent('catchAt', e);
-  showMulti('#08f', cfg.contactSize);
-  renderMulti(e.x1, e.y1, e.x2, e.y2);
-});
-engine.on('catchMove', e => {
-  showEvent('catchMove', e, true);
-  renderMulti(e.x1, e.y1, e.x2, e.y2);
-});
-engine.on('catchDrop', e => {
-  showEvent('catchDrop', e);
-  hideMulti();
-});
+engine.on('catchAt',   e => showEvent('catchAt', e));
+engine.on('catchMove', e => showEvent('catchMove', e, true));
+engine.on('catchDrop', e => showEvent('catchDrop', e));
 
 const exportCode = document.getElementById('export-code');
 const btnExport = document.getElementById('btn-export');

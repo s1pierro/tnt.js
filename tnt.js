@@ -600,12 +600,20 @@ class CursorKinematics {
  * Façade tout-en-un : crée les éléments DOM du curseur déporté et câble les
  * événements de {@link TouchEngine} et {@link CursorKinematics}.
  *
+ * **Positionnement** : tous les éléments visuels sont en `position:absolute`
+ * dans le container. `TouchOverlay` garantit que le container est un contexte
+ * de positionnement en forçant `position:relative` s'il est encore `static`.
+ * Les coordonnées émises par les événements sont relatives au border-box du
+ * container — assurez-vous que celui-ci n'a pas de `padding` ou de `border`
+ * qui décalerait l'origine, ou tenez-en compte dans votre application.
+ *
  * Recommandé pour un usage standard. Pour une personnalisation avancée,
  * utiliser `TouchEngine` et `CursorKinematics` séparément.
  */
 class TouchOverlay {
   /**
-   * @param {HTMLElement} container - Élément conteneur (doit être en `position:relative` ou `absolute`).
+   * @param {HTMLElement} container - Élément conteneur. Doit couvrir la zone tactile.
+   *   `TouchOverlay` force `position:relative` si le container est en `position:static`.
    * @param {Object}  [opts={}]
    * @param {number}  [opts.dist=80]           - Distance fixe doigt → curseur (px). Transmis à `TouchEngine` et `CursorKinematics`.
    * @param {number}  [opts.tapMax=500]        - Voir {@link TouchEngine}.
@@ -618,6 +626,11 @@ class TouchOverlay {
    * @param {boolean} [opts.pulseEnabled=true] - Animation pulse à l'activation du grab.
    */
   constructor(container, opts = {}) {
+    // Garantit un contexte de positionnement pour les éléments absolus
+    if (getComputedStyle(container).position === 'static') {
+      container.style.position = 'relative';
+    }
+
     this.contactSize  = opts.contactSize  ?? 24;
     this.cursorSize   = opts.cursorSize   ?? 14;
     this.rodEnabled   = opts.rodEnabled   ?? true;
