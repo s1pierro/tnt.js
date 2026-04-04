@@ -88,6 +88,18 @@
     z-index: 2;
   }
 
+  #dot-center {
+    position: absolute;
+    border-radius: 50%;
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    z-index: 3;
+    border: 2px solid;
+    background: transparent;
+  }
+
   #multi-line {
     position: absolute;
     height: 2px;
@@ -282,6 +294,7 @@
   <div id="dot1"></div>
   <div id="dot2"></div>
   <div id="multi-line"></div>
+  <div id="dot-center"></div>
 </div>
 
 <div id="panel">
@@ -363,6 +376,7 @@ const rodEl       = document.getElementById('rod');
 const dot1El      = document.getElementById('dot1');
 const dot2El      = document.getElementById('dot2');
 const multiLineEl = document.getElementById('multi-line');
+const dotCenterEl = document.getElementById('dot-center');
 const stateBadge  = document.getElementById('state-badge');
 const eventLiveEl    = document.getElementById('event-live');
 const eventHistoryEl = document.getElementById('event-history');
@@ -501,18 +515,24 @@ function showMulti(color, size) {
   dot1El.style.height     = size + 'px';
   dot2El.style.width      = size + 'px';
   dot2El.style.height     = size + 'px';
-  dot1El.style.background = color;
-  dot2El.style.background = color;
-  multiLineEl.style.background = color;
+  const cSize = Math.round(size * 0.6);
+  dotCenterEl.style.width       = cSize + 'px';
+  dotCenterEl.style.height      = cSize + 'px';
+  dotCenterEl.style.borderColor = color;
+  dot1El.style.background       = color;
+  dot2El.style.background       = color;
+  multiLineEl.style.background  = color;
   dot1El.style.opacity      = '1';
   dot2El.style.opacity      = '1';
   multiLineEl.style.opacity = '1';
+  dotCenterEl.style.opacity = '1';
 }
 
 function hideMulti() {
   dot1El.style.opacity      = '0';
   dot2El.style.opacity      = '0';
   multiLineEl.style.opacity = '0';
+  dotCenterEl.style.opacity = '0';
 }
 
 function renderMulti(x1, y1, x2, y2) {
@@ -520,6 +540,8 @@ function renderMulti(x1, y1, x2, y2) {
   dot1El.style.top  = y1 + 'px';
   dot2El.style.left = x2 + 'px';
   dot2El.style.top  = y2 + 'px';
+  dotCenterEl.style.left = ((x1 + x2) / 2) + 'px';
+  dotCenterEl.style.top  = ((y1 + y2) / 2) + 'px';
   const dx    = x2 - x1, dy = y2 - y1;
   const len   = Math.hypot(dx, dy);
   const angle = Math.atan2(dy, dx);

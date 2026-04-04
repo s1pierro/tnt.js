@@ -639,9 +639,10 @@ class TouchOverlay {
     this._contactEl  = null;
     this._cursorEl   = null;
     this._rodEl      = null;
-    this._dot1El     = null;
-    this._dot2El     = null;
+    this._dot1El      = null;
+    this._dot2El      = null;
     this._multiLineEl = null;
+    this._dotCenterEl = null;
 
     this._buildDOM();
     this._bindEvents();
@@ -735,6 +736,16 @@ class TouchOverlay {
     ].join(';');
     this._el.appendChild(this._multiLineEl);
 
+    const cSize = Math.round(this._contactSize * 0.6);
+    this._dotCenterEl = document.createElement('div');
+    this._dotCenterEl.style.cssText = [
+      'position:absolute', 'border-radius:50%', 'background:transparent',
+      'border:2px solid', 'transform:translate(-50%,-50%)', 'pointer-events:none',
+      'opacity:0', 'transition:opacity 0.1s',
+      `width:${cSize}px`, `height:${cSize}px`,
+    ].join(';');
+    this._el.appendChild(this._dotCenterEl);
+
     const style = document.createElement('style');
     style.textContent = `
 @keyframes tnt-pulse {
@@ -783,9 +794,11 @@ class TouchOverlay {
     this._dot1El.style.background      = color;
     this._dot2El.style.background      = color;
     this._multiLineEl.style.background = color;
-    this._dot1El.style.opacity         = '1';
-    this._dot2El.style.opacity         = '1';
-    this._multiLineEl.style.opacity    = '1';
+    this._dotCenterEl.style.borderColor = color;
+    this._dot1El.style.opacity          = '1';
+    this._dot2El.style.opacity          = '1';
+    this._multiLineEl.style.opacity     = '1';
+    this._dotCenterEl.style.opacity     = '1';
   }
 
   /** @private */
@@ -793,6 +806,7 @@ class TouchOverlay {
     this._dot1El.style.opacity      = '0';
     this._dot2El.style.opacity      = '0';
     this._multiLineEl.style.opacity = '0';
+    this._dotCenterEl.style.opacity = '0';
   }
 
   /** @private */
@@ -801,6 +815,8 @@ class TouchOverlay {
     this._dot1El.style.top  = y1 + 'px';
     this._dot2El.style.left = x2 + 'px';
     this._dot2El.style.top  = y2 + 'px';
+    this._dotCenterEl.style.left = ((x1 + x2) / 2) + 'px';
+    this._dotCenterEl.style.top  = ((y1 + y2) / 2) + 'px';
     const dx    = x2 - x1;
     const dy    = y2 - y1;
     const len   = Math.hypot(dx, dy);
