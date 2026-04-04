@@ -1,0 +1,8 @@
+{
+  "name": "tntjs",
+  "version": "0.8.5",
+  "type": "module",
+  "scripts": {
+    "docs": "jsdoc -c jsdoc.json"
+  }
+}

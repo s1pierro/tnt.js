@@ -1,5 +1,33 @@
-/**
- * @fileoverview TNT.js — Touch & No-Touch, v0.8.5
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: tnt.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: tnt.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @fileoverview TNT.js — Touch &amp; No-Touch, v0.8.5
  *
  * Module d'abstraction des interactions tactiles pour surfaces mobiles.
  * Surmonte l'occlusion du doigt via un curseur déporté à distance fixe.
@@ -277,7 +305,7 @@ class TouchEngine {
     }
 
     // idle → tapping on first touch
-    if (this.state === 'idle' && this.touchCount === 1) {
+    if (this.state === 'idle' &amp;&amp; this.touchCount === 1) {
       const t0  = e.changedTouches[0];
       const pos0 = this._pos(t0);
       this.firstTouchId = t0.identifier;
@@ -304,7 +332,7 @@ class TouchEngine {
     }
 
     // tapping + second finger → pinching
-    if (this.touchCount === 2 && this.state === 'tapping') {
+    if (this.touchCount === 2 &amp;&amp; this.state === 'tapping') {
       this._clearTimers();
       const pts = [...this.touches.values()];
       this._pinchInitDist = Math.hypot(
@@ -341,7 +369,7 @@ class TouchEngine {
       if (dist > this._maxDelta) this._maxDelta = dist;
 
       // Cancel press/longPress if finger exceeds grab distance
-      if ((this.state === 'pressing' || this.state === 'longPressing') && t.identifier === this.firstTouchId) {
+      if ((this.state === 'pressing' || this.state === 'longPressing') &amp;&amp; t.identifier === this.firstTouchId) {
         if (dist >= this.opts.dist) {
           const px = pos.x, py = pos.y;
           this._toIdle();
@@ -351,7 +379,7 @@ class TouchEngine {
       }
 
       // Grabbing: drag the cursor
-      if (this.state === 'grabbing' && t.identifier === this.grabId) {
+      if (this.state === 'grabbing' &amp;&amp; t.identifier === this.grabId) {
         // Keep cursor at exactly dist px from touch, preserving current direction
         const cdx = this.cursor.x - pos.x;
         const cdy = this.cursor.y - pos.y;
@@ -367,7 +395,7 @@ class TouchEngine {
       }
 
       // Tapping: check grab threshold
-      if (this.state === 'tapping' && t.identifier === this.firstTouchId) {
+      if (this.state === 'tapping' &amp;&amp; t.identifier === this.firstTouchId) {
         if (Math.hypot(pos.x - data.start.x, pos.y - data.start.y) >= this.opts.dist) {
           this._clearTimers();
           // Place cursor at dist px from touch, in the direction touch→gesture start
@@ -389,7 +417,7 @@ class TouchEngine {
     }
 
     // Pinch update
-    if (this.state === 'pinching' && this.touches.size === 2) {
+    if (this.state === 'pinching' &amp;&amp; this.touches.size === 2) {
       const [a, b] = [...this.touches.values()];
       const curDist = Math.hypot(b.prev.x - a.prev.x, b.prev.y - a.prev.y);
       const scale   = this._pinchInitDist > 0 ? curDist / this._pinchInitDist : 1;
@@ -407,7 +435,7 @@ class TouchEngine {
       if (!data) continue;
 
       // Grab release
-      if (this.state === 'grabbing' && t.identifier === this.grabId) {
+      if (this.state === 'grabbing' &amp;&amp; t.identifier === this.grabId) {
         const activated = { ...this._grabActivatedAt };
         const payload   = {
           x: this.cursor.x, y: this.cursor.y,
@@ -434,7 +462,7 @@ class TouchEngine {
     }
 
     // Single-touch gesture completion
-    if (this.touchCount === 0 && this.gestureStartStamp !== null) {
+    if (this.touchCount === 0 &amp;&amp; this.gestureStartStamp !== null) {
       const dt         = performance.now() - this.gestureStartStamp;
       const finalState = this.state;
       const t0         = e.changedTouches[0];
@@ -447,8 +475,8 @@ class TouchEngine {
         this.emit('tap', { x, y, intensity: Math.min(dt / this.opts.tapMax, 1), precision });
 
       } else if (finalState === 'pressing') {
-        // Dead zone: pressMax < dt < longPressMin → emit nothing
-        if (dt <= this.opts.pressMax) {
+        // Dead zone: pressMax &lt; dt &lt; longPressMin → emit nothing
+        if (dt &lt;= this.opts.pressMax) {
           const intensity = Math.max(0, (dt - this.opts.pressMin) / (this.opts.pressMax - this.opts.pressMin));
           this.emit('press', { x, y, intensity, precision });
         }
@@ -729,3 +757,26 @@ class TouchOverlay {
 }
 
 export { TouchEngine, CursorKinematics, TouchOverlay };
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-tnt.html">tnt</a></li></ul><h3>Classes</h3><ul><li><a href="module-tnt-CursorKinematics.html">CursorKinematics</a></li><li><a href="module-tnt-TouchEngine.html">TouchEngine</a></li><li><a href="module-tnt-TouchOverlay.html">TouchOverlay</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Sat Apr 04 2026 09:12:43 GMT+0000 (Coordinated Universal Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

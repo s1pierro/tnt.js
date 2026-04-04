@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Module: tnt</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Module: tnt</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        
+            
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+            <div class="description">TNT.js — Touch & No-Touch, v0.8.5
+
+Module d'abstraction des interactions tactiles pour surfaces mobiles.
+Surmonte l'occlusion du doigt via un curseur déporté à distance fixe.
+
+Exports : TouchEngine, CursorKinematics, TouchOverlay
+
+---
+
+**Architecture**
+
+- `TouchEngine` — machine à états ; capture les événements touch et émet
+  les événements de geste. Gère aussi la position du curseur déporté.
+- `CursorKinematics` — utilitaire de positionnement géométrique du curseur,
+  indépendant du DOM. Maintient le curseur à `dist` px du doigt, barre rigide.
+- `TouchOverlay` — façade tout-en-un : crée les éléments DOM et câble les
+  événements. Recommandé pour un usage standard.
+
+---
+
+**Machine à états**
+```
+                 ┌──────────────────────────────────────────────────────┐
+                 │                  5 doigts (tout état)                │
+                 ▼                                                      │
+IDLE ─(1 doigt)──► TAPPING ─(dépl. ≥ dist)──► GRABBING ─(relâché)──► IDLE
+         │            │                                                  ▲
+         │            ├──(tapMax ms)──► PRESSING                        │
+         │            │                     │                           │
+         │            │         (longPressMin - tapMax ms)              │
+         │            │                     │                           │
+         │            │               LONGPRESSING                      │
+         │            │                     │                           │
+         │            └──(2 doigts)──► PINCHING ┤                       │
+         │                                      └──(tout relâché)───────┘
+         └──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**Événements émis par TouchEngine**
+
+Toutes les coordonnées sont relatives à l'élément écouté (pas au viewport).
+
+| Événement      | Payload |
+|----------------|---------|
+| `stateChange`  | `{ state }` |
+| `tap`          | `{ x, y, intensity, precision }` |
+| `press`        | `{ x, y, intensity, precision }` |
+| `longPress`    | `{ x, y, msAfterMin, precision }` |
+| `cancel`       | `{ x, y, state }` |
+| `cursorActivate` | `{ x, y, touchX, touchY, state }` |
+| `cursorMove`   | `{ x, y, touchX, touchY, state }` |
+| `cursorRelease`| `{ x, y, activatedAt, vector, state }` |
+| `cancelCursor` | `{ x, y, state }` |
+| `pinchStart`   | `{ scale, state }` |
+| `pinchChange`  | `{ scale, state }` |
+| `pinchEnd`     | `{ scale, duration, state }` |
+
+- `intensity` `[0–1]` : durée normalisée dans la fenêtre temporelle du geste.
+- `precision` : distance maximale (px) parcourue par le doigt depuis le départ.
+- `x, y` dans les événements curseur : position du curseur déporté (= `kine.x/y`).
+
+---
+
+**Usage bas niveau**
+```js
+import { TouchEngine, CursorKinematics } from './tnt.js';
+
+const engine = new TouchEngine(element, { dist: 80 });
+const kine   = new CursorKinematics({ dist: 80 });
+
+engine.on('cursorActivate', e => kine.activate(e.x, e.y, e.touchX, e.touchY));
+engine.on('cursorMove',     e => kine.update(e.touchX, e.touchY));
+engine.on('tap',            e => console.log('tap', e.x, e.y, e.intensity));
+```
+
+**Usage overlay (recommandé)**
+```js
+import { TouchOverlay } from './tnt.js';
+
+const overlay = new TouchOverlay(element, {
+  dist: 80, contactSize: 24, cursorSize: 14,
+});
+overlay.engine.on('tap', e => console.log('tap', e));
+```</div>
+        
+
+        
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+    <dt class="tag-version">Version:</dt>
+    <dd class="tag-version"><ul class="dummy"><li>0.8.5</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="tnt.js.html">tnt.js</a>, <a href="tnt.js.html#line1">line 1</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Classes</h3>
+
+        <dl>
+            <dt><a href="module-tnt-CursorKinematics.html">CursorKinematics</a></dt>
+            <dd></dd>
+        
+            <dt><a href="module-tnt-TouchEngine.html">TouchEngine</a></dt>
+            <dd></dd>
+        
+            <dt><a href="module-tnt-TouchOverlay.html">TouchOverlay</a></dt>
+            <dd></dd>
+        </dl>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-tnt.html">tnt</a></li></ul><h3>Classes</h3><ul><li><a href="module-tnt-CursorKinematics.html">CursorKinematics</a></li><li><a href="module-tnt-TouchEngine.html">TouchEngine</a></li><li><a href="module-tnt-TouchOverlay.html">TouchOverlay</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Sat Apr 04 2026 09:12:43 GMT+0000 (Coordinated Universal Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

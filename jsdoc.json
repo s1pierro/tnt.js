@@ -1,0 +1,14 @@
+{
+  "source": {
+    "include": ["tnt.js"]
+  },
+  "opts": {
+    "destination": "./docs",
+    "recurse": false
+  },
+  "plugins": [],
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false
+  }
+}
