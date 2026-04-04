@@ -3,25 +3,27 @@
 Module JavaScript d'abstraction des interactions tactiles pour applications mobiles.  
 Conçu pour surmonter l'occlusion du doigt sur écran et offrir une précision de pointage accrue.
 
-**Version 0.8.4** — ES module, zéro dépendance.
+**Version 0.8.5** — ES module, zéro dépendance. Surfaces tactiles uniquement.
 
 ---
 
 ## Concept
 
-Sur mobile, le doigt masque ce qu'il touche. TNT déplace le point de pointage actif au-dessus du doigt via un **curseur déporté**, animé par une simulation physique à ressort. Le module expose également une machine à états pour tous les gestes courants : tap, press, longPress, grab, pinch.
+Sur mobile, le doigt masque ce qu'il touche. TNT déplace le point de pointage actif au-dessus du doigt via un **curseur déporté**, maintenu à distance fixe du doigt par une barre rigide. Le module expose également une machine à états pour tous les gestes courants : tap, press, longPress, grab, pinch.
 
 ```
   ╭───────────╮
   │  contact  │  ← point de contact réel (sous le doigt)
   │     ●     │
   ╰─────│─────╯
-        │  ← bras (rod)
+        │  ← bras rigide (dist px, rotation libre)
         │
       ╭─▼─╮
       │ ● │  ← curseur déporté (point de travail visible)
       ╰───╯
 ```
+
+Toutes les coordonnées émises dans les événements sont **relatives à l'élément** écouté, pas au viewport.
 
 ---
 
@@ -76,7 +78,7 @@ IDLE ─(1 doigt)──► TAPPING ─(dépl. ≥ dist)──► GRABBING ─(re
 
 ### `TouchEngine`
 
-Moteur principal. Capture les événements touch/mouse et émet les événements de geste.
+Moteur principal. Capture les événements touch et émet les événements de geste.
 
 ```js
 const engine = new TouchEngine(element, options);
@@ -86,7 +88,7 @@ const engine = new TouchEngine(element, options);
 
 | Paramètre | Type | Défaut | Description |
 |---|---|---|---|
-| `dist` | `number` | `80` | Distance (px) à partir de laquelle le geste passe en `grabbing` |
+| `dist` | `number` | `80` | Distance (px) à partir de laquelle le geste passe en `grabbing` ; aussi la longueur de la barre du curseur |
 | `tapMax` | `number` | `500` | Durée max (ms) d'un tap ; déclenche aussi la transition vers `pressing` |
 | `pressMin` | `number` | `500` | Durée min (ms) d'un press pour que l'intensité soit > 0 |
 | `pressMax` | `number` | `1500` | Durée max (ms) d'un press ; au-delà commence la zone morte |
@@ -111,7 +113,7 @@ engine.longPressMin = 2500;
 | Propriété | Type | Description |
 |---|---|---|
 | `state` | `string` | État courant : `'idle'` `'tapping'` `'pressing'` `'longPressing'` `'grabbing'` `'pinching'` |
-| `cursor` | `{x, y, active}` | Position du curseur déporté et état d'activation |
+| `cursor` | `{x, y, active}` | Position du curseur déporté, en coordonnées relatives à l'élément |
 | `isGrabbing` | `boolean` | Raccourci : `state === 'grabbing'` |
 | `touchCount` | `number` | Nombre de doigts actuellement posés |
 
@@ -120,13 +122,15 @@ engine.longPressMin = 2500;
 ```js
 engine.on(type, handler)   // Abonnement à un événement
 engine.emit(type, data)    // Émission manuelle (tests, extensions)
+engine.destroy()           // Retire tous les listeners (à appeler en démontage)
 ```
 
 ---
 
 ### Événements émis
 
-Tous les handlers reçoivent un objet de données. S'abonner avec `engine.on(type, fn)`.
+Tous les handlers reçoivent un objet de données. S'abonner avec `engine.on(type, fn)`.  
+Toutes les coordonnées `x`, `y`, `touchX`, `touchY` sont **relatives à l'élément**.
 
 #### `stateChange`
 Émis à chaque transition d'état.
@@ -167,7 +171,7 @@ Le grab commence : le curseur déporté apparaît.
 ```js
 { x, y, touchX, touchY, state }
 ```
-- `x, y` : position initiale du curseur déporté.
+- `x, y` : position initiale du curseur déporté (à `dist` px du doigt, dans la direction opposée au mouvement).
 - `touchX, touchY` : position du doigt.
 
 #### `cursorMove`
@@ -175,6 +179,7 @@ Le doigt se déplace pendant un grab.
 ```js
 { x, y, touchX, touchY, state }
 ```
+- `x, y` : position du curseur déporté (toujours à exactement `dist` px du doigt).
 
 #### `cursorRelease`
 Le grab se termine.
@@ -206,7 +211,7 @@ Geste de pincement à 2 doigts.
 
 ### `CursorKinematics`
 
-Simulation physique à ressort pour le curseur déporté. Indépendant du DOM.
+Positionnement rigide du curseur déporté. Maintient le curseur à distance fixe du doigt, avec rotation libre de la barre. Indépendant du DOM.
 
 ```js
 const kine = new CursorKinematics(options);
@@ -216,21 +221,14 @@ const kine = new CursorKinematics(options);
 
 | Paramètre | Type | Défaut | Description |
 |---|---|---|---|
-| `dist` | `number` | `80` | Distance d'équilibre entre le doigt et le curseur (px) |
-| `friction` | `number` | `0.90` | Amortissement de la vitesse par frame (`0.80`–`0.99`) |
-| `stiffness` | `number` | `0.15` | Raideur du ressort (`0.05`–`0.5`) |
-
-> `friction` élevée → trainage lent et fluide.  
-> `stiffness` élevée → réponse rapide, moins de glissement.
+| `dist` | `number` | `80` | Distance fixe entre le doigt et le curseur (px) |
 
 #### Propriétés
 
 | Propriété | Type | Description |
 |---|---|---|
-| `x`, `y` | `number` | Position courante du curseur (lecture seule en pratique) |
-| `dist` | `number` | Distance d'équilibre, modifiable à l'exécution |
-| `friction` | `number` | Amortissement, modifiable à l'exécution |
-| `stiffness` | `number` | Raideur, modifiable à l'exécution |
+| `x`, `y` | `number` | Position courante du curseur |
+| `dist` | `number` | Distance fixe, modifiable à l'exécution |
 | `initialized` | `boolean` | `true` si le curseur a été positionné au moins une fois |
 
 #### Méthodes
@@ -244,13 +242,15 @@ kine.activate(cursorX, cursorY, touchX, touchY)
 // À appeler au cursorActivate.
 
 kine.update(px, py)
-// Avance la simulation d'un pas vers le point de contact.
-// À appeler à chaque cursorMove, idéalement dans un rAF.
+// Replace le curseur à exactement dist px du doigt, en conservant la direction courante.
+// À appeler à chaque cursorMove.
 
 kine.reset()
-// Réinitialise le curseur (initialized = false, vitesses = 0).
+// Réinitialise le curseur (initialized = false).
 // À appeler au cursorRelease et cancelCursor.
 ```
+
+> `CursorKinematics` et `TouchEngine` appliquent la même formule géométrique : les coordonnées `x, y` émises dans les événements correspondent toujours à `kine.x`, `kine.y`.
 
 ---
 
@@ -310,7 +310,7 @@ engine.on('tap', ({ x, y, intensity }) => {
 
 ```js
 const engine = new TouchEngine(canvas, { dist: 60 });
-const kine   = new CursorKinematics({ dist: 60, friction: 0.88, stiffness: 0.18 });
+const kine   = new CursorKinematics({ dist: 60 });
 
 let draggedPiece = null;
 
@@ -320,12 +320,14 @@ engine.on('cursorActivate', ({ x, y, touchX, touchY }) => {
   if (draggedPiece) board.beginDrag(draggedPiece);
 });
 
-engine.on('cursorMove', ({ touchX, touchY }) => {
+engine.on('cursorMove', ({ x, y, touchX, touchY }) => {
+  // x, y sont déjà les coordonnées correctes du curseur déporté ;
+  // kine.update() peut être utilisé si vous gérez l'affichage vous-même.
   kine.update(touchX, touchY);
-  if (draggedPiece) board.moveDragTo(kine.x, kine.y);
+  if (draggedPiece) board.moveDragTo(x, y);
 });
 
-engine.on('cursorRelease', ({ x, y, vector }) => {
+engine.on('cursorRelease', ({ x, y }) => {
   kine.reset();
   if (draggedPiece) {
     board.dropAt(x, y);
@@ -370,8 +372,6 @@ engine.on('pinchChange', ({ scale }) => {
 ```js
 const overlay = new TouchOverlay(document.getElementById('stage'), {
   dist:         60,
-  friction:     0.88,
-  stiffness:    0.18,
   tapMax:       400,
   pressMin:     600,
   pressMax:     1400,
@@ -407,10 +407,11 @@ overlay.engine.on('longPress', e => deletePiece(e));
 
 ## Notes techniques
 
-- **Ghost clicks** : les navigateurs mobiles émettent des événements `mousedown`/`mouseup` environ 300 ms après un `touchend`. TNT supprime automatiquement ces événements fantômes (garde de 500 ms).
-- **Précision temporelle** : les durées utilisent `performance.now()` (résolution sub-milliseconde) plutôt que `Date.now()`.
-- **Mouse** : les événements souris sont traduits en touches virtuelles (identifiant `−1`) pour permettre le test sur desktop.
+- **Coordonnées relatives** : toutes les coordonnées émises sont relatives à l'élément écouté (pas au viewport). Le `getBoundingClientRect()` est mis en cache au début de chaque geste.
+- **Barre rigide** : le curseur déporté est maintenu à exactement `dist` px du doigt. Aucune simulation physique, aucun rebond — précision maximale.
+- **Précision temporelle** : les durées utilisent `performance.now()` (résolution sub-milliseconde).
 - **5 doigts** : n'importe quel état est annulé proprement si 5 doigts ou plus sont détectés simultanément.
+- **Touch uniquement** : les événements souris ne sont pas pris en charge. Module conçu pour surfaces tactiles.
 
 ---
 
@@ -421,7 +422,6 @@ overlay.engine.on('longPress', e => deletePiece(e));
 | Chrome Android 90+ | ✅ |
 | Safari iOS 14+ | ✅ |
 | Firefox Android | ✅ |
-| Desktop (mouse) | ✅ (simulation touch) |
 | PWA / standalone | ✅ |
 | Bundler (webpack, vite…) | ✅ (ES module natif) |
 
@@ -429,8 +429,16 @@ overlay.engine.on('longPress', e => deletePiece(e));
 
 ## Changelog
 
+### 0.8.5 — 2026-04-04
+- Suppression du support souris : module touch uniquement
+- `CursorKinematics` : suppression du ressort (friction/stiffness) — barre rigide, distance fixe
+- Coordonnées relatives à l'élément dans tous les événements (correction du décalage viewport)
+- Cohérence garantie entre `engine.cursor` et `kine.x/y` : les valeurs émises correspondent à l'affichage
+
 ### 0.8.4
-- Correction du calcul d'intensité pour les taps sans déplacement (ghost clicks mobiles supprimés, `performance.now()`)
+- Correction du calcul d'intensité pour les taps
+- Ghost clicks mobiles supprimés
+- `performance.now()` à la place de `Date.now()`
 
 ### 0.8.x
 - Machine à états complète : `tapping` / `pressing` / `longPressing` pilotés par `setTimeout`

@@ -89,7 +89,7 @@
  */
 class TouchEngine {
   /**
-   * @param {HTMLElement} el - Element to bind touch/mouse events to.
+   * @param {HTMLElement} el - Element to bind touch events to.
    * @param {Object} [opts={}] - Configuration options.
    * @param {number} [opts.dist=80]           - Grab activation distance in pixels.
    * @param {number} [opts.tapMax=500]        - Max ms for a tap (also: delay before entering pressing).
@@ -155,11 +155,11 @@ class TouchEngine {
     this._lastPinchScale = 1;
 
     /**
-     * Timestamp of the last touchend/touchcancel, used to suppress ghost mouse
-     * clicks that mobile browsers emit ~300ms after a touch gesture.
-     * @private @type {number}
+     * Bounding rect of the element, cached at gesture start to avoid
+     * repeated getBoundingClientRect() calls during move events.
+     * @private @type {DOMRect|null}
      */
-    this._lastTouchEnd = -Infinity;
+    this._rect = null;
 
     this._bind();
   }
@@ -239,20 +239,37 @@ class TouchEngine {
   /** @private */
   _bind() {
     const opt = { passive: false };
-    this.el.addEventListener('touchstart',  e => this._start(e), opt);
-    this.el.addEventListener('touchmove',   e => this._move(e),  opt);
-    this.el.addEventListener('touchend',    e => { this._lastTouchEnd = performance.now(); this._end(e); },   opt);
-    this.el.addEventListener('touchcancel', e => { this._lastTouchEnd = performance.now(); this._end(e); },   opt);
-    this.el.addEventListener('mousedown',   e => this._mouseStart(e));
-    window.addEventListener('mousemove',    e => this._mouseMove(e));
-    window.addEventListener('mouseup',      e => this._mouseEnd(e));
+    this._hTouchStart  = e => this._start(e);
+    this._hTouchMove   = e => this._move(e);
+    this._hTouchEnd    = e => this._end(e);
+    this.el.addEventListener('touchstart',  this._hTouchStart, opt);
+    this.el.addEventListener('touchmove',   this._hTouchMove,  opt);
+    this.el.addEventListener('touchend',    this._hTouchEnd,   opt);
+    this.el.addEventListener('touchcancel', this._hTouchEnd,   opt);
+  }
+
+  /**
+   * Remove all event listeners bound by this engine.
+   * Call this when the owning component is destroyed.
+   */
+  destroy() {
+    const opt = { passive: false };
+    this.el.removeEventListener('touchstart',  this._hTouchStart, opt);
+    this.el.removeEventListener('touchmove',   this._hTouchMove,  opt);
+    this.el.removeEventListener('touchend',    this._hTouchEnd,   opt);
+    this.el.removeEventListener('touchcancel', this._hTouchEnd,   opt);
+    this._toIdle();
   }
 
   /** @private */
-  _pos(t) { return { x: t.clientX, y: t.clientY }; }
+  _pos(t) {
+    const r = this._rect;
+    return { x: t.clientX - (r ? r.left : 0), y: t.clientY - (r ? r.top : 0) };
+  }
 
   /** @private */
   _start(e) {
+    this._rect = this.el.getBoundingClientRect();
     this.touchCount += e.changedTouches.length;
 
     for (const t of e.changedTouches) {
@@ -269,11 +286,12 @@ class TouchEngine {
 
     // idle → tapping on first touch
     if (this.state === 'idle' && this.touchCount === 1) {
-      const t0 = e.changedTouches[0];
+      const t0  = e.changedTouches[0];
+      const pos0 = this._pos(t0);
       this.firstTouchId = t0.identifier;
       this.gestureStartStamp = performance.now();
-      this.cursor.x = t0.clientX;
-      this.cursor.y = t0.clientY;
+      this.cursor.x = pos0.x;
+      this.cursor.y = pos0.y;
       this.cursor.active = true;
       this._setState('tapping');
 
@@ -342,8 +360,12 @@ class TouchEngine {
 
       // Grabbing: drag the cursor
       if (this.state === 'grabbing' && t.identifier === this.grabId) {
-        this.cursor.x += dx;
-        this.cursor.y += dy;
+        // Keep cursor at exactly dist px from touch, preserving current direction
+        const cdx = this.cursor.x - pos.x;
+        const cdy = this.cursor.y - pos.y;
+        const cd  = Math.hypot(cdx, cdy) || 0.0001;
+        this.cursor.x = pos.x + (cdx / cd) * this.opts.dist;
+        this.cursor.y = pos.y + (cdy / cd) * this.opts.dist;
         this.emit('cursorMove', {
           x: this.cursor.x, y: this.cursor.y,
           touchX: pos.x, touchY: pos.y,
@@ -356,6 +378,12 @@ class TouchEngine {
       if (this.state === 'tapping' && t.identifier === this.firstTouchId) {
         if (Math.hypot(pos.x - data.start.x, pos.y - data.start.y) >= this.opts.dist) {
           this._clearTimers();
+          // Place cursor at dist px from touch, in the direction touch→gesture start
+          const cdx = data.start.x - pos.x;
+          const cdy = data.start.y - pos.y;
+          const cd  = Math.hypot(cdx, cdy) || 0.0001;
+          this.cursor.x = pos.x + (cdx / cd) * this.opts.dist;
+          this.cursor.y = pos.y + (cdy / cd) * this.opts.dist;
           this._grabActivatedAt = { x: this.cursor.x, y: this.cursor.y };
           this.grabId = t.identifier;
           this._setState('grabbing');
@@ -440,53 +468,26 @@ class TouchEngine {
     }
   }
 
-  /** @private */
-  _mouseStart(e) {
-    if (this.state !== 'idle') return;
-    // Ignore ghost clicks emitted by mobile browsers after touch events
-    if (performance.now() - this._lastTouchEnd < 500) return;
-    this._start({ changedTouches: [{ identifier: -1, clientX: e.clientX, clientY: e.clientY }] });
-  }
-
-  /** @private */
-  _mouseMove(e) {
-    if (this.state === 'idle') return;
-    this._move({ changedTouches: [{ identifier: -1, clientX: e.clientX, clientY: e.clientY }] });
-  }
-
-  /** @private */
-  _mouseEnd(e) {
-    if (this.state === 'idle') return;
-    this._end({ changedTouches: [{ identifier: -1, clientX: e.clientX, clientY: e.clientY }] });
-  }
 }
 
 /**
  * Spring-based kinematics for the displaced cursor.
- * Simulates a mass on a spring being pulled toward the touch point.
- *
- * Physics model:
- * - Target = touch + (cursor→touch direction normalized) × dist
- * - Force  = (target − cursor) × stiffness
- * - velocity += force; velocity *= friction; position += velocity
+ * Positions the displaced cursor at a fixed distance from the touch point.
+ * The cursor follows the touch rigidly — no spring, no lag, no elasticity.
+ * The direction is preserved: as the finger moves, the cursor stays at `dist` px
+ * in the same relative direction, rotating smoothly around the contact point.
  *
  * @class
  */
 class CursorKinematics {
   /**
    * @param {Object} [opts={}]
-   * @param {number} [opts.dist=80]       - Equilibrium distance from touch (px).
-   * @param {number} [opts.friction=0.90] - Velocity damping per frame (0.80–0.99).
-   * @param {number} [opts.stiffness=0.15]- Spring stiffness (0.05–0.5).
+   * @param {number} [opts.dist=80] - Fixed distance from touch (px).
    */
   constructor(opts = {}) {
     /** @type {number} */ this.x = 0;
     /** @type {number} */ this.y = 0;
-    /** @type {number} */ this.vx = 0;
-    /** @type {number} */ this.vy = 0;
-    /** @type {number} */ this.dist      = opts.dist      ?? 80;
-    /** @type {number} */ this.friction  = opts.friction  ?? 0.90;
-    /** @type {number} */ this.stiffness = opts.stiffness ?? 0.15;
+    /** @type {number} */ this.dist = opts.dist ?? 80;
     /** @type {boolean} */ this.initialized = false;
   }
 
@@ -526,30 +527,22 @@ class CursorKinematics {
    */
   reset() {
     this.initialized = false;
-    this.vx = 0;
-    this.vy = 0;
   }
 
   /**
-   * Advance the spring simulation by one step toward the touch point.
+   * Place the cursor at exactly `dist` px from the touch point,
+   * preserving the current cursor→touch direction.
    * @param {number} px - Touch X.
    * @param {number} py - Touch Y.
    */
   update(px, py) {
     if (!this.initialized) { this.init(px, py); return; }
 
-    const dx      = this.x - px;
-    const dy      = this.y - py;
-    const d       = Math.hypot(dx, dy) || 0.0001;
-    const targetX = px + (dx / d) * this.dist;
-    const targetY = py + (dy / d) * this.dist;
-
-    this.vx += (targetX - this.x) * this.stiffness;
-    this.vy += (targetY - this.y) * this.stiffness;
-    this.vx *= this.friction;
-    this.vy *= this.friction;
-    this.x  += this.vx;
-    this.y  += this.vy;
+    const dx = this.x - px;
+    const dy = this.y - py;
+    const d  = Math.hypot(dx, dy) || 0.0001;
+    this.x   = px + (dx / d) * this.dist;
+    this.y   = py + (dy / d) * this.dist;
   }
 }
 
@@ -589,9 +582,7 @@ class TouchOverlay {
     });
 
     this._kine = new CursorKinematics({
-      dist:      opts.dist      ?? 80,
-      friction:  opts.friction  ?? 0.92,
-      stiffness: opts.stiffness ?? 0.2,
+      dist: opts.dist ?? 80,
     });
 
     this._el         = container;
