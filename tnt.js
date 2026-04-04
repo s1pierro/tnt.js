@@ -1,101 +1,110 @@
 /**
- * TNT — Touch offset cursor overlay module
+ * @fileoverview TNT.js — Touch & No-Touch, v0.8.5
  *
- * Provides a touch overlay with a displaced cursor (offset from finger contact)
- * to overcome finger occlusion and improve precision on mobile devices.
+ * Module d'abstraction des interactions tactiles pour surfaces mobiles.
+ * Surmonte l'occlusion du doigt via un curseur déporté à distance fixe.
  *
- * @module tnt
- * @version 2.0.0
- */
-
-/**
- * @fileoverview TouchEngine + CursorKinematics + TouchOverlay
+ * Exports : {@link TouchEngine}, {@link CursorKinematics}, {@link TouchOverlay}
  *
- * TouchEngine — state machine that captures touch events and emits lifecycle events.
- * CursorKinematics — spring-based lag simulation for the displaced cursor.
- * TouchOverlay — full overlay with DOM rendering (contact dot, cursor, rod).
+ * ---
  *
- * State machine:
+ * **Architecture**
+ *
+ * - `TouchEngine` — machine à états ; capture les événements touch et émet
+ *   les événements de geste. Gère aussi la position du curseur déporté.
+ * - `CursorKinematics` — utilitaire de positionnement géométrique du curseur,
+ *   indépendant du DOM. Maintient le curseur à `dist` px du doigt, barre rigide.
+ * - `TouchOverlay` — façade tout-en-un : crée les éléments DOM et câble les
+ *   événements. Recommandé pour un usage standard.
+ *
+ * ---
+ *
+ * **Machine à états**
  * ```
  *                  ┌──────────────────────────────────────────────────────┐
- *                  │                  5 fingers (any state)               │
+ *                  │                  5 doigts (tout état)                │
  *                  ▼                                                      │
- * IDLE ─(1 touch)──► TAPPING ─(travel ≥ dist)──► GRABBING ─(release)──► IDLE
+ * IDLE ─(1 doigt)──► TAPPING ─(dépl. ≥ dist)──► GRABBING ─(relâché)──► IDLE
  *          │            │                                                  ▲
- *          │            ├──(timeout tapMax)──► PRESSING                   │
- *          │            │                          │                      │
- *          │            │              (timeout longPressMin-tapMax)      │
- *          │            │                          │                      │
- *          │            │                     LONGPRESSING                │
- *          │            │                          │                      │
- *          │            └──(2 touches)──► PINCHING ┤                      │
- *          │                                       └──(any lift)──────────┘
+ *          │            ├──(tapMax ms)──► PRESSING                        │
+ *          │            │                     │                           │
+ *          │            │         (longPressMin - tapMax ms)              │
+ *          │            │                     │                           │
+ *          │            │               LONGPRESSING                      │
+ *          │            │                     │                           │
+ *          │            └──(2 doigts)──► PINCHING ┤                       │
+ *          │                                      └──(tout relâché)───────┘
  *          └──────────────────────────────────────────────────────────────┘
  * ```
  *
- * Events emitted:
- *   stateChange      — every state transition  { state }
- *   cursorActivate   — grab begins             { x, y, touchX, touchY, state }
- *   cursorMove       — grab in progress        { x, y, touchX, touchY, state }
- *   cursorRelease    — grab ends               { x, y, activatedAt, vector, state }
- *   cancelCursor     — 5-finger cancel         { x, y, state }
- *   tap              — short touch             { x, y, intensity, precision }
- *   press            — medium touch            { x, y, intensity, precision }
- *   longPress        — long touch              { x, y, msAfterMin, precision }
- *   cancel           — press/longPress annulé par déplacement ≥ dist  { x, y, state }
- *   pinchStart       — 2-finger pinch begins   { scale, state }
- *   pinchChange      — pinch in progress       { scale, state }
- *   pinchEnd         — pinch ends              { scale, duration, state }
+ * ---
  *
- * intensity (tap/press): normalized duration 0–1 within the gesture's time window.
- * precision: max distance (px) the finger traveled from its start point.
+ * **Événements émis par TouchEngine**
  *
- * Low-level usage:
+ * Toutes les coordonnées sont relatives à l'élément écouté (pas au viewport).
+ *
+ * | Événement      | Payload |
+ * |----------------|---------|
+ * | `stateChange`  | `{ state }` |
+ * | `tap`          | `{ x, y, intensity, precision }` |
+ * | `press`        | `{ x, y, intensity, precision }` |
+ * | `longPress`    | `{ x, y, msAfterMin, precision }` |
+ * | `cancel`       | `{ x, y, state }` |
+ * | `cursorActivate` | `{ x, y, touchX, touchY, state }` |
+ * | `cursorMove`   | `{ x, y, touchX, touchY, state }` |
+ * | `cursorRelease`| `{ x, y, activatedAt, vector, state }` |
+ * | `cancelCursor` | `{ x, y, state }` |
+ * | `pinchStart`   | `{ scale, state }` |
+ * | `pinchChange`  | `{ scale, state }` |
+ * | `pinchEnd`     | `{ scale, duration, state }` |
+ *
+ * - `intensity` `[0–1]` : durée normalisée dans la fenêtre temporelle du geste.
+ * - `precision` : distance maximale (px) parcourue par le doigt depuis le départ.
+ * - `x, y` dans les événements curseur : position du curseur déporté (= `kine.x/y`).
+ *
+ * ---
+ *
+ * **Usage bas niveau**
  * ```js
  * import { TouchEngine, CursorKinematics } from './tnt.js';
  *
- * const engine = new TouchEngine(document.body, { dist: 80 });
+ * const engine = new TouchEngine(element, { dist: 80 });
  * const kine   = new CursorKinematics({ dist: 80 });
  *
  * engine.on('cursorActivate', e => kine.activate(e.x, e.y, e.touchX, e.touchY));
  * engine.on('cursorMove',     e => kine.update(e.touchX, e.touchY));
- * engine.on('tap',            e => console.log('tap', e.intensity));
- * engine.on('stateChange',    e => console.log('state →', e.state));
+ * engine.on('tap',            e => console.log('tap', e.x, e.y, e.intensity));
  * ```
  *
- * Full overlay usage:
+ * **Usage overlay (recommandé)**
  * ```js
  * import { TouchOverlay } from './tnt.js';
  *
- * const overlay = new TouchOverlay(document.body, {
- *   contactSize: 24, cursorSize: 14,
- *   rodEnabled: true, pulseEnabled: true,
- *   dist: 80, friction: 0.92, stiffness: 0.2,
+ * const overlay = new TouchOverlay(element, {
+ *   dist: 80, contactSize: 24, cursorSize: 14,
  * });
- *
  * overlay.engine.on('tap', e => console.log('tap', e));
- * overlay.engine.on('stateChange', e => console.log('state →', e.state));
  * ```
+ *
+ * @module tnt
+ * @version 0.8.5
  */
 
 /**
- * Touch event capture engine with a state machine.
+ * Moteur de capture des événements touch avec machine à états.
  *
- * States: idle → tapping → pressing → longPressing
- *                       ↘ grabbing
- *                       ↘ pinching
- *
- * @class
+ * Toutes les coordonnées émises sont relatives à l'élément `el`.
+ * Le `getBoundingClientRect()` est mis en cache au début de chaque geste.
  */
 class TouchEngine {
   /**
-   * @param {HTMLElement} el - Element to bind touch events to.
-   * @param {Object} [opts={}] - Configuration options.
-   * @param {number} [opts.dist=80]           - Grab activation distance in pixels.
-   * @param {number} [opts.tapMax=500]        - Max ms for a tap (also: delay before entering pressing).
-   * @param {number} [opts.pressMin=500]      - Min ms for a press (= tapMax in default config).
-   * @param {number} [opts.pressMax=1500]     - Max ms for a press; above this is the dead zone.
-   * @param {number} [opts.longPressMin=3000] - Total ms before entering longPressing state.
+   * @param {HTMLElement} el - Élément sur lequel écouter les événements touch.
+   * @param {Object}  [opts={}]
+   * @param {number}  [opts.dist=80]           - Distance (px) de déclenchement du grab ; aussi la longueur de la barre.
+   * @param {number}  [opts.tapMax=500]        - Durée max (ms) d'un tap ; aussi le délai avant `pressing`.
+   * @param {number}  [opts.pressMin=500]      - Durée min (ms) d'un press pour avoir une intensité > 0.
+   * @param {number}  [opts.pressMax=1500]     - Durée max (ms) d'un press ; au-delà = zone morte.
+   * @param {number}  [opts.longPressMin=3000] - Durée totale (ms) avant d'entrer en `longPressing`.
    */
   constructor(el, opts = {}) {
     /** @type {HTMLElement} */
@@ -109,31 +118,38 @@ class TouchEngine {
       ...opts,
     };
 
-    /** @type {Object.<string, function[]>} */
+    /** @private @type {Object.<string, function[]>} */
     this.handlers = {};
 
-    /** @type {Map<number, {start:{x:number,y:number}, prev:{x:number,y:number}}>} */
+    /** @private @type {Map<number, {start:{x:number,y:number}, prev:{x:number,y:number}}>} */
     this.touches = new Map();
 
-    /** @type {{ x:number, y:number, active:boolean }} */
+    /**
+     * Position courante du curseur déporté, en coordonnées relatives à `el`.
+     * Valide uniquement pendant un grab (`active === true`).
+     * @type {{ x:number, y:number, active:boolean }}
+     */
     this.cursor = { x: 0, y: 0, active: false };
 
     /**
-     * Current state machine state.
+     * État courant de la machine.
      * @type {'idle'|'tapping'|'pressing'|'longPressing'|'grabbing'|'pinching'}
      */
     this.state = 'idle';
 
-    /** @type {number} */
+    /**
+     * Nombre de doigts actuellement posés.
+     * @type {number}
+     */
     this.touchCount = 0;
 
-    /** @type {number|null} */
+    /** @private @type {number|null} */
     this.firstTouchId = null;
 
-    /** @type {number|null} */
+    /** @private @type {number|null} */
     this.grabId = null;
 
-    /** @type {number|null} Timestamp of the first touch in the current gesture. */
+    /** @private @type {number|null} Timestamp (`performance.now()`) du premier contact du geste. */
     this.gestureStartStamp = null;
 
     /** @private @type {{x:number,y:number}|null} Cursor position when grab activated. */
@@ -164,35 +180,40 @@ class TouchEngine {
     this._bind();
   }
 
-  /**
-   * Whether a grab is currently active.
-   * @type {boolean}
-   * @readonly
-   */
+  /** Raccourci : `state === 'grabbing'`. @type {boolean} */
   get isGrabbing() { return this.state === 'grabbing'; }
 
-  /** @type {number} */ get dist()         { return this.opts.dist; }
-  /** @type {number} */ set dist(v)        { this.opts.dist = v; }
-  /** @type {number} */ get tapMax()       { return this.opts.tapMax; }
-  /** @type {number} */ set tapMax(v)      { this.opts.tapMax = v; }
-  /** @type {number} */ get pressMin()     { return this.opts.pressMin; }
-  /** @type {number} */ set pressMin(v)    { this.opts.pressMin = v; }
-  /** @type {number} */ get pressMax()     { return this.opts.pressMax; }
-  /** @type {number} */ set pressMax(v)    { this.opts.pressMax = v; }
-  /** @type {number} */ get longPressMin() { return this.opts.longPressMin; }
-  /** @type {number} */ set longPressMin(v){ this.opts.longPressMin = v; }
+  /** Distance de déclenchement du grab et longueur de barre (px). @type {number} */
+  get dist()          { return this.opts.dist; }
+  set dist(v)         { this.opts.dist = v; }
+
+  /** Durée max d'un tap, aussi délai avant `pressing` (ms). @type {number} */
+  get tapMax()        { return this.opts.tapMax; }
+  set tapMax(v)       { this.opts.tapMax = v; }
+
+  /** Durée min d'un press pour avoir intensity > 0 (ms). @type {number} */
+  get pressMin()      { return this.opts.pressMin; }
+  set pressMin(v)     { this.opts.pressMin = v; }
+
+  /** Durée max d'un press ; au-delà = zone morte (ms). @type {number} */
+  get pressMax()      { return this.opts.pressMax; }
+  set pressMax(v)     { this.opts.pressMax = v; }
+
+  /** Durée totale avant d'entrer en `longPressing` (ms). @type {number} */
+  get longPressMin()  { return this.opts.longPressMin; }
+  set longPressMin(v) { this.opts.longPressMin = v; }
 
   /**
-   * Register an event handler.
-   * @param {string} type - Event name.
-   * @param {function} fn - Handler.
+   * Abonne un handler à un événement.
+   * @param {string}   type - Nom de l'événement.
+   * @param {function} fn   - Handler appelé avec le payload de l'événement.
    */
   on(type, fn) {
     (this.handlers[type] ||= []).push(fn);
   }
 
   /**
-   * Emit an event.
+   * Émet un événement manuellement (utile pour les tests ou les extensions).
    * @param {string} type
    * @param {Object} data
    */
@@ -446,8 +467,7 @@ class TouchEngine {
       const dt         = performance.now() - this.gestureStartStamp;
       const finalState = this.state;
       const t0         = e.changedTouches[0];
-      const x          = t0.clientX;
-      const y          = t0.clientY;
+      const { x, y }   = this._pos(t0);   // coordonnées relatives à l'élément
       const precision  = this._maxDelta;
       this._toIdle();
 
@@ -471,18 +491,20 @@ class TouchEngine {
 }
 
 /**
- * Spring-based kinematics for the displaced cursor.
- * Positions the displaced cursor at a fixed distance from the touch point.
- * The cursor follows the touch rigidly — no spring, no lag, no elasticity.
- * The direction is preserved: as the finger moves, the cursor stays at `dist` px
- * in the same relative direction, rotating smoothly around the contact point.
+ * Positionnement géométrique du curseur déporté.
  *
- * @class
+ * Maintient le curseur à exactement `dist` px du doigt — barre rigide, sans ressort.
+ * La direction est conservée : quand le doigt bouge, la barre pivote autour du
+ * contact sans changer de longueur.
+ *
+ * Les coordonnées `x`, `y` de cette classe sont dans le même repère que les
+ * coordonnées `touchX`, `touchY` fournies à `update()` (en pratique, relatives
+ * à l'élément si on utilise les valeurs émises par {@link TouchEngine}).
  */
 class CursorKinematics {
   /**
    * @param {Object} [opts={}]
-   * @param {number} [opts.dist=80] - Fixed distance from touch (px).
+   * @param {number} [opts.dist=80] - Distance fixe entre le doigt et le curseur (px).
    */
   constructor(opts = {}) {
     /** @type {number} */ this.x = 0;
@@ -492,48 +514,47 @@ class CursorKinematics {
   }
 
   /**
-   * Place the cursor at `dist` px to the right of the touch point.
-   * @param {number} px - Touch X.
-   * @param {number} py - Touch Y.
+   * Place le curseur à `dist` px à droite du point de contact.
+   * Utilisé en fallback par `update()` si le curseur n'est pas encore initialisé.
+   * @param {number} px - X du contact.
+   * @param {number} py - Y du contact.
    */
   init(px, py) {
-    this.x  = px + this.dist;
-    this.y  = py;
-    this.vx = 0;
-    this.vy = 0;
+    this.x = px + this.dist;
+    this.y = py;
     this.initialized = true;
   }
 
   /**
-   * Place the cursor at `dist` px away from touch, along the existing direction.
-   * @param {number} cursorX - Cursor X hint.
-   * @param {number} cursorY - Cursor Y hint.
-   * @param {number} touchX  - Touch X.
-   * @param {number} touchY  - Touch Y.
+   * Initialise le curseur à `dist` px du doigt, dans la direction `curseur → doigt`.
+   * À appeler au `cursorActivate` avec les valeurs `e.x, e.y, e.touchX, e.touchY`.
+   * @param {number} cursorX - X courant du curseur (indice de direction).
+   * @param {number} cursorY - Y courant du curseur.
+   * @param {number} touchX  - X du doigt.
+   * @param {number} touchY  - Y du doigt.
    */
   activate(cursorX, cursorY, touchX, touchY) {
     const dx = cursorX - touchX;
     const dy = cursorY - touchY;
     const d  = Math.hypot(dx, dy) || 0.0001;
-    this.x  = touchX + (dx / d) * this.dist;
-    this.y  = touchY + (dy / d) * this.dist;
-    this.vx = 0;
-    this.vy = 0;
+    this.x   = touchX + (dx / d) * this.dist;
+    this.y   = touchY + (dy / d) * this.dist;
     this.initialized = true;
   }
 
   /**
-   * Reset the cursor to uninitialized state (stops rendering until next activate/init).
+   * Réinitialise le curseur (arrête le rendu jusqu'au prochain `activate`/`init`).
+   * À appeler au `cursorRelease` et au `cancelCursor`.
    */
   reset() {
     this.initialized = false;
   }
 
   /**
-   * Place the cursor at exactly `dist` px from the touch point,
-   * preserving the current cursor→touch direction.
-   * @param {number} px - Touch X.
-   * @param {number} py - Touch Y.
+   * Replace le curseur à exactement `dist` px du doigt en conservant la direction courante.
+   * À appeler à chaque `cursorMove`, idéalement dans un `requestAnimationFrame`.
+   * @param {number} px - X du doigt.
+   * @param {number} py - Y du doigt.
    */
   update(px, py) {
     if (!this.initialized) { this.init(px, py); return; }
@@ -547,25 +568,25 @@ class CursorKinematics {
 }
 
 /**
- * Self-contained touch overlay: creates DOM elements and wires all events.
+ * Façade tout-en-un : crée les éléments DOM du curseur déporté et câble les
+ * événements de {@link TouchEngine} et {@link CursorKinematics}.
  *
- * @class
+ * Recommandé pour un usage standard. Pour une personnalisation avancée,
+ * utiliser `TouchEngine` et `CursorKinematics` séparément.
  */
 class TouchOverlay {
   /**
-   * @param {HTMLElement} container
-   * @param {Object} [opts={}]
-   * @param {number}  [opts.contactSize=24]
-   * @param {number}  [opts.cursorSize=14]
-   * @param {boolean} [opts.rodEnabled=true]
-   * @param {boolean} [opts.pulseEnabled=true]
-   * @param {number}  [opts.dist=80]
-   * @param {number}  [opts.tapMax=500]
-   * @param {number}  [opts.pressMin=500]
-   * @param {number}  [opts.pressMax=1500]
-   * @param {number}  [opts.longPressMin=3000]
-   * @param {number}  [opts.friction=0.92]
-   * @param {number}  [opts.stiffness=0.2]
+   * @param {HTMLElement} container - Élément conteneur (doit être en `position:relative` ou `absolute`).
+   * @param {Object}  [opts={}]
+   * @param {number}  [opts.dist=80]           - Distance fixe doigt → curseur (px). Transmis à `TouchEngine` et `CursorKinematics`.
+   * @param {number}  [opts.tapMax=500]        - Voir {@link TouchEngine}.
+   * @param {number}  [opts.pressMin=500]      - Voir {@link TouchEngine}.
+   * @param {number}  [opts.pressMax=1500]     - Voir {@link TouchEngine}.
+   * @param {number}  [opts.longPressMin=3000] - Voir {@link TouchEngine}.
+   * @param {number}  [opts.contactSize=24]    - Diamètre du point de contact (px).
+   * @param {number}  [opts.cursorSize=14]     - Diamètre du curseur déporté (px).
+   * @param {boolean} [opts.rodEnabled=true]   - Affiche le bras entre contact et curseur.
+   * @param {boolean} [opts.pulseEnabled=true] - Animation pulse à l'activation du grab.
    */
   constructor(container, opts = {}) {
     this.contactSize  = opts.contactSize  ?? 24;
@@ -594,12 +615,13 @@ class TouchOverlay {
     this._bindEvents();
   }
 
-  /** @type {TouchEngine} */
+  /** Le {@link TouchEngine} sous-jacent. @type {TouchEngine} */
   get engine() { return this._engine; }
 
-  /** @type {CursorKinematics} */
+  /** Le {@link CursorKinematics} sous-jacent. @type {CursorKinematics} */
   get kine() { return this._kine; }
 
+  /** Diamètre du point de contact (px), modifiable à l'exécution. @type {number} */
   set contactSize(v) {
     this._contactSize = v;
     if (this._contactEl) {
@@ -609,6 +631,7 @@ class TouchOverlay {
   }
   get contactSize() { return this._contactSize; }
 
+  /** Diamètre du curseur déporté (px), modifiable à l'exécution. @type {number} */
   set cursorSize(v) {
     this._cursorSize = v;
     if (this._cursorEl) {
@@ -618,12 +641,14 @@ class TouchOverlay {
   }
   get cursorSize() { return this._cursorSize; }
 
+  /** Active/désactive le bras entre contact et curseur. @type {boolean} */
   set rodEnabled(v) {
     this._rodEnabled = v;
     if (this._rodEl) this._rodEl.style.opacity = v ? '1' : '0';
   }
   get rodEnabled() { return this._rodEnabled; }
 
+  /** Active/désactive l'animation pulse à l'activation du grab. @type {boolean} */
   set pulseEnabled(v) { this._pulseEnabled = v; }
   get pulseEnabled()  { return this._pulseEnabled; }
 
