@@ -406,12 +406,14 @@ class TouchEngine {
         this._pinchInitDist  = curDist;
         this._lastPinchScale = 1;
         this._setState('pinching');
-        this.emit('pinchStart', { scale: 1, state: 'pinching' });
+        this.emit('pinchStart', { scale: 1, state: 'pinching',
+          x1: a.prev.x, y1: a.prev.y, x2: b.prev.x, y2: b.prev.y });
       } else if (centerMov >= threshold) {
         // Doigts se translatent ensemble → catch
         this._pending2 = false;
         this._setState('catching');
-        this.emit('catchAt', { x: center.x, y: center.y, state: 'catching' });
+        this.emit('catchAt', { x: center.x, y: center.y, state: 'catching',
+          x1: a.prev.x, y1: a.prev.y, x2: b.prev.x, y2: b.prev.y });
       }
     }
 
@@ -421,7 +423,8 @@ class TouchEngine {
       const curDist = Math.hypot(b.prev.x - a.prev.x, b.prev.y - a.prev.y);
       const scale   = this._pinchInitDist > 0 ? curDist / this._pinchInitDist : 1;
       this._lastPinchScale = scale;
-      this.emit('pinchChange', { scale, state: 'pinching' });
+      this.emit('pinchChange', { scale, state: 'pinching',
+        x1: a.prev.x, y1: a.prev.y, x2: b.prev.x, y2: b.prev.y });
     }
 
     // Catch update
@@ -430,6 +433,7 @@ class TouchEngine {
       this.emit('catchMove', {
         x: (a.prev.x + b.prev.x) / 2,
         y: (a.prev.y + b.prev.y) / 2,
+        x1: a.prev.x, y1: a.prev.y, x2: b.prev.x, y2: b.prev.y,
         state: 'catching',
       });
     }
@@ -635,6 +639,9 @@ class TouchOverlay {
     this._contactEl  = null;
     this._cursorEl   = null;
     this._rodEl      = null;
+    this._dot1El     = null;
+    this._dot2El     = null;
+    this._multiLineEl = null;
 
     this._buildDOM();
     this._bindEvents();
@@ -705,6 +712,29 @@ class TouchOverlay {
     ].join(';');
     this._el.appendChild(this._rodEl);
 
+    const dotBase = [
+      'position:absolute', 'border-radius:50%',
+      'transform:translate(-50%,-50%)', 'pointer-events:none',
+      'opacity:0', 'transition:opacity 0.1s',
+      `width:${this._contactSize}px`, `height:${this._contactSize}px`,
+    ].join(';');
+
+    this._dot1El = document.createElement('div');
+    this._dot1El.style.cssText = dotBase;
+    this._el.appendChild(this._dot1El);
+
+    this._dot2El = document.createElement('div');
+    this._dot2El.style.cssText = dotBase;
+    this._el.appendChild(this._dot2El);
+
+    this._multiLineEl = document.createElement('div');
+    this._multiLineEl.style.cssText = [
+      'position:absolute', 'height:2px',
+      'transform-origin:left center', 'pointer-events:none',
+      'opacity:0', 'transition:opacity 0.1s',
+    ].join(';');
+    this._el.appendChild(this._multiLineEl);
+
     const style = document.createElement('style');
     style.textContent = `
 @keyframes tnt-pulse {
@@ -749,6 +779,39 @@ class TouchOverlay {
   }
 
   /** @private */
+  _showMulti(color) {
+    this._dot1El.style.background      = color;
+    this._dot2El.style.background      = color;
+    this._multiLineEl.style.background = color;
+    this._dot1El.style.opacity         = '1';
+    this._dot2El.style.opacity         = '1';
+    this._multiLineEl.style.opacity    = '1';
+  }
+
+  /** @private */
+  _hideMulti() {
+    this._dot1El.style.opacity      = '0';
+    this._dot2El.style.opacity      = '0';
+    this._multiLineEl.style.opacity = '0';
+  }
+
+  /** @private */
+  _renderMulti(x1, y1, x2, y2) {
+    this._dot1El.style.left = x1 + 'px';
+    this._dot1El.style.top  = y1 + 'px';
+    this._dot2El.style.left = x2 + 'px';
+    this._dot2El.style.top  = y2 + 'px';
+    const dx    = x2 - x1;
+    const dy    = y2 - y1;
+    const len   = Math.hypot(dx, dy);
+    const angle = Math.atan2(dy, dx);
+    this._multiLineEl.style.left      = x1 + 'px';
+    this._multiLineEl.style.top       = y1 + 'px';
+    this._multiLineEl.style.width     = len + 'px';
+    this._multiLineEl.style.transform = `rotate(${angle}rad)`;
+  }
+
+  /** @private */
   _bindEvents() {
     this._engine.on('cursorActivate', e => {
       this._kine.activate(e.x, e.y, e.touchX, e.touchY);
@@ -779,6 +842,16 @@ class TouchOverlay {
 
     this._engine.on('cursorRelease', () => this._hide());
     this._engine.on('cancelCursor',  () => this._hide());
+
+    // Pinch (orange)
+    this._engine.on('pinchStart',  e => { this._showMulti('#f80'); this._renderMulti(e.x1, e.y1, e.x2, e.y2); });
+    this._engine.on('pinchChange', e => this._renderMulti(e.x1, e.y1, e.x2, e.y2));
+    this._engine.on('pinchEnd',    () => this._hideMulti());
+
+    // Catch (bleu)
+    this._engine.on('catchAt',   e => { this._showMulti('#08f'); this._renderMulti(e.x1, e.y1, e.x2, e.y2); });
+    this._engine.on('catchMove', e => this._renderMulti(e.x1, e.y1, e.x2, e.y2));
+    this._engine.on('catchDrop', () => this._hideMulti());
   }
 }
 
