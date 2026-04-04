@@ -130,7 +130,7 @@ class TouchEngine {
 
     /**
      * État courant de la machine.
-     * @type {'idle'|'tapping'|'pressing'|'longPressing'|'grabbing'|'pinching'}
+     * @type {'idle'|'tapping'|'pressing'|'longPressing'|'grabbing'|'pinching'|'catching'}
      */
     this.state = 'idle';
 
@@ -140,16 +140,20 @@ class TouchEngine {
      */
     this.touchCount = 0;
 
-    this.firstTouchId     = null;  // identifier du premier doigt
-    this.grabId           = null;  // identifier du doigt en grab
-    this.gestureStartStamp = null; // performance.now() au premier contact
-    this._grabActivatedAt = null;  // position curseur à l'activation
-    this._maxDelta        = 0;     // distance max parcourue (precision)
-    this._tapTimer        = null;
-    this._longPressTimer  = null;
-    this._pinchInitDist   = 0;
-    this._lastPinchScale  = 1;
-    this._rect            = null;  // DOMRect mis en cache au début du geste
+    this.firstTouchId      = null;  // identifier du premier doigt
+    this.grabId            = null;  // identifier du doigt en grab
+    this.gestureStartStamp = null;  // performance.now() au premier contact
+    this._grabActivatedAt  = null;  // position curseur à l'activation
+    this._maxDelta         = 0;     // distance max parcourue (precision)
+    this._tapTimer         = null;
+    this._longPressTimer   = null;
+    this._pinchInitDist    = 0;
+    this._lastPinchScale   = 1;
+    this._rect             = null;  // DOMRect mis en cache au début du geste
+    // Discrimination 2 doigts (pinch vs catch)
+    this._pending2         = false; // 2e doigt posé, geste pas encore discriminé
+    this._pending2InitDist = 0;     // distance inter-doigts au moment du 2e contact
+    this._pending2Center   = null;  // centre inter-doigts au moment du 2e contact
 
     this._bind();
   }
@@ -221,8 +225,11 @@ class TouchEngine {
     this.gestureStartStamp = null;
     this._grabActivatedAt = null;
     this._maxDelta = 0;
-    this._pinchInitDist = 0;
-    this._lastPinchScale = 1;
+    this._pinchInitDist    = 0;
+    this._lastPinchScale   = 1;
+    this._pending2         = false;
+    this._pending2InitDist = 0;
+    this._pending2Center   = null;
     this.cursor.active = false;
     this.touches.clear();
     this.emit('stateChange', { state: 'idle' });
@@ -303,17 +310,13 @@ class TouchEngine {
       return;
     }
 
-    // tapping + second finger → pinching
+    // tapping + 2e doigt → discrimination en attente (pinch ou catch ?)
     if (this.touchCount === 2 && this.state === 'tapping') {
       this._clearTimers();
-      const pts = [...this.touches.values()];
-      this._pinchInitDist = Math.hypot(
-        pts[1].start.x - pts[0].start.x,
-        pts[1].start.y - pts[0].start.y,
-      );
-      this._lastPinchScale = 1;
-      this._setState('pinching');
-      this.emit('pinchStart', { scale: 1, state: 'pinching' });
+      const [a, b] = [...this.touches.values()];
+      this._pending2         = true;
+      this._pending2InitDist = Math.hypot(b.prev.x - a.prev.x, b.prev.y - a.prev.y);
+      this._pending2Center   = { x: (a.prev.x + b.prev.x) / 2, y: (a.prev.y + b.prev.y) / 2 };
     }
   }
 
@@ -366,8 +369,8 @@ class TouchEngine {
         continue;
       }
 
-      // Tapping: check grab threshold
-      if (this.state === 'tapping' && t.identifier === this.firstTouchId) {
+      // Tapping: check grab threshold (only when no 2nd finger pending)
+      if (this.state === 'tapping' && !this._pending2 && t.identifier === this.firstTouchId) {
         if (Math.hypot(pos.x - data.start.x, pos.y - data.start.y) >= this.opts.dist) {
           this._clearTimers();
           // Place cursor at dist px from touch, in the direction touch→gesture start
@@ -388,6 +391,30 @@ class TouchEngine {
       }
     }
 
+    // Discrimination pending2 : pinch ou catch ?
+    if (this._pending2 && this.touches.size === 2) {
+      const [a, b]    = [...this.touches.values()];
+      const curDist   = Math.hypot(b.prev.x - a.prev.x, b.prev.y - a.prev.y);
+      const center    = { x: (a.prev.x + b.prev.x) / 2, y: (a.prev.y + b.prev.y) / 2 };
+      const deltaDist = Math.abs(curDist - this._pending2InitDist);
+      const centerMov = Math.hypot(center.x - this._pending2Center.x, center.y - this._pending2Center.y);
+      const threshold = this.opts.dist / 4;
+
+      if (deltaDist >= threshold) {
+        // Doigts s'éloignent ou se rapprochent → pinch
+        this._pending2       = false;
+        this._pinchInitDist  = curDist;
+        this._lastPinchScale = 1;
+        this._setState('pinching');
+        this.emit('pinchStart', { scale: 1, state: 'pinching' });
+      } else if (centerMov >= threshold) {
+        // Doigts se translatent ensemble → catch
+        this._pending2 = false;
+        this._setState('catching');
+        this.emit('catchAt', { x: center.x, y: center.y, state: 'catching' });
+      }
+    }
+
     // Pinch update
     if (this.state === 'pinching' && this.touches.size === 2) {
       const [a, b] = [...this.touches.values()];
@@ -395,6 +422,16 @@ class TouchEngine {
       const scale   = this._pinchInitDist > 0 ? curDist / this._pinchInitDist : 1;
       this._lastPinchScale = scale;
       this.emit('pinchChange', { scale, state: 'pinching' });
+    }
+
+    // Catch update
+    if (this.state === 'catching' && this.touches.size === 2) {
+      const [a, b] = [...this.touches.values()];
+      this.emit('catchMove', {
+        x: (a.prev.x + b.prev.x) / 2,
+        y: (a.prev.y + b.prev.y) / 2,
+        state: 'catching',
+      });
     }
   }
 
@@ -430,6 +467,23 @@ class TouchEngine {
       const duration = this.gestureStartStamp ? performance.now() - this.gestureStartStamp : 0;
       this._toIdle();
       this.emit('pinchEnd', { scale, duration, state: 'idle' });
+      return;
+    }
+
+    // Catch end on any lift while catching
+    if (this.state === 'catching') {
+      // Centre calculé avant suppression des touches
+      const pts = [...this.touches.values()];
+      const x   = pts.reduce((s, p) => s + p.prev.x, 0) / (pts.length || 1);
+      const y   = pts.reduce((s, p) => s + p.prev.y, 0) / (pts.length || 1);
+      this._toIdle();
+      this.emit('catchDrop', { x, y, state: 'idle' });
+      return;
+    }
+
+    // Doigt relevé avant discrimination → annulation silencieuse
+    if (this._pending2) {
+      this._toIdle();
       return;
     }
 
