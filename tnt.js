@@ -767,6 +767,18 @@ class TouchOverlay {
 @keyframes tnt-pulse {
   from { opacity:0.8; transform:translate(-50%,-50%) scale(1); }
   to   { opacity:0;   transform:translate(-50%,-50%) scale(2.8); }
+}
+@keyframes tnt-disc {
+  from { opacity:0.65; transform:translate(-50%,-50%) scale(0.8); }
+  to   { opacity:0;    transform:translate(-50%,-50%) scale(2.8); }
+}
+@keyframes tnt-ring-shrink {
+  from { opacity:0.7; transform:translate(-50%,-50%) scale(2.4); }
+  to   { opacity:0;   transform:translate(-50%,-50%) scale(0.4); }
+}
+@keyframes tnt-burst-dot {
+  from { opacity:0.9; transform:translate(-50%,-50%); }
+  to   { opacity:0;   transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))); }
 }`;
     document.head.appendChild(style);
   }
@@ -843,28 +855,79 @@ class TouchOverlay {
     this._multiLineEl.style.transform = `rotate(${angle}rad)`;
   }
 
+  /**
+   * Spawn a one-shot animation element on the overlay.
+   * @private
+   * @param {'ring'|'disc'|'ring-shrink'|'burst'} type
+   * @param {number} x
+   * @param {number} y
+   * @param {string} color
+   * @param {object} [opts]
+   * @param {number} [opts.size]
+   * @param {string} [opts.duration]
+   * @param {string} [opts.delay]
+   */
+  _anim(type, x, y, color, { size = this._cursorSize * 3, duration = '0.45s', delay = '0s' } = {}) {
+    if (!this._pulseEnabled) return;
+
+    if (type === 'burst') {
+      const N = 8, r = size * 0.7;
+      for (let i = 0; i < N; i++) {
+        const angle = (i / N) * Math.PI * 2;
+        const dot   = document.createElement('div');
+        dot.style.cssText = [
+          'position:absolute', 'border-radius:50%', 'pointer-events:none',
+          `background:${color}`, 'width:5px', 'height:5px',
+          `left:${x}px`, `top:${y}px`,
+          `--dx:${(Math.cos(angle) * r).toFixed(1)}px`,
+          `--dy:${(Math.sin(angle) * r).toFixed(1)}px`,
+          `animation:tnt-burst-dot ${duration} ease-out ${delay} forwards`,
+        ].join(';');
+        this._el.appendChild(dot);
+        dot.addEventListener('animationend', () => dot.remove(), { once: true });
+      }
+      return;
+    }
+
+    const kf  = type === 'disc' ? 'tnt-disc'
+               : type === 'ring-shrink' ? 'tnt-ring-shrink'
+               : 'tnt-pulse';
+    const el  = document.createElement('div');
+    const isFilled = type === 'disc';
+    el.style.cssText = [
+      'position:absolute', 'border-radius:50%', 'pointer-events:none',
+      'transform:translate(-50%,-50%)',
+      `left:${x}px`, `top:${y}px`,
+      `width:${size}px`, `height:${size}px`,
+      isFilled ? `background:${color}; opacity:0` : `border:2px solid ${color}; opacity:0`,
+      `animation:${kf} ${duration} ease-out ${delay} forwards`,
+    ].join(';');
+    this._el.appendChild(el);
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }
+
   /** @private */
   _bindEvents() {
+    this._engine.on('tap', e => {
+      this._anim('ring', e.x, e.y, '#0ff', { size: this._cursorSize * 2.5, duration: '0.3s' });
+    });
+
+    this._engine.on('press', e => {
+      this._anim('ring', e.x, e.y, '#ff0', { duration: '0.5s' });
+      this._anim('ring', e.x, e.y, '#ff0', { duration: '0.5s', delay: '0.12s' });
+    });
+
+    this._engine.on('longPress', e => {
+      this._anim('ring', e.x, e.y, '#f0f', { duration: '0.55s' });
+      this._anim('ring', e.x, e.y, '#f0f', { duration: '0.55s', delay: '0.1s' });
+      this._anim('ring', e.x, e.y, '#f0f', { duration: '0.55s', delay: '0.2s' });
+    });
+
     this._engine.on('cursorActivate', e => {
       this._kine.activate(e.x, e.y, e.touchX, e.touchY);
       this._show();
       this._render(e.touchX, e.touchY);
-
-      if (this._pulseEnabled) {
-        const pulse = document.createElement('div');
-        pulse.style.cssText = [
-          'position:absolute', 'border-radius:50%',
-          'border:2px solid #0f0',
-          'transform:translate(-50%,-50%)',
-          'pointer-events:none',
-          'animation:tnt-pulse 0.5s ease-out forwards',
-          `left:${e.x}px`, `top:${e.y}px`,
-          `width:${this._cursorSize * 3}px`,
-          `height:${this._cursorSize * 3}px`,
-        ].join(';');
-        this._el.appendChild(pulse);
-        pulse.addEventListener('animationend', () => pulse.remove(), { once: true });
-      }
+      this._anim('ring', e.x, e.y, '#0f8', { duration: '0.5s' });
     });
 
     this._engine.on('cursorMove', e => {
@@ -872,18 +935,41 @@ class TouchOverlay {
       this._render(e.touchX, e.touchY);
     });
 
-    this._engine.on('cursorRelease', () => this._hide());
-    this._engine.on('cancelCursor',  () => this._hide());
+    this._engine.on('cursorRelease', e => {
+      this._hide();
+      this._anim('ring-shrink', e.x, e.y, '#8fc', { duration: '0.35s' });
+    });
 
-    // Pinch (orange)
-    this._engine.on('pinchStart',  e => { this._showMulti('#f80'); this._renderMulti(e.x1, e.y1, e.x2, e.y2); });
+    this._engine.on('cancelCursor', e => {
+      this._hide();
+      this._anim('ring-shrink', e.x, e.y, '#f88', { duration: '0.3s' });
+    });
+
+    // Pinch (orange) — disque plein expansif
+    this._engine.on('pinchStart', e => {
+      this._showMulti('#f80');
+      this._renderMulti(e.x1, e.y1, e.x2, e.y2);
+      const cx = (e.x1 + e.x2) / 2, cy = (e.y1 + e.y2) / 2;
+      this._anim('disc', cx, cy, '#f80', { duration: '0.4s' });
+    });
     this._engine.on('pinchChange', e => this._renderMulti(e.x1, e.y1, e.x2, e.y2));
-    this._engine.on('pinchEnd',    () => this._hideMulti());
+    this._engine.on('pinchEnd', e => {
+      this._hideMulti();
+      this._anim('disc', e.x, e.y, '#fc8', { size: this._cursorSize * 2, duration: '0.35s' });
+    });
 
-    // Catch (bleu)
-    this._engine.on('catchAt',   e => { this._showMulti('#08f'); this._renderMulti(e.x1, e.y1, e.x2, e.y2); });
+    // Catch (bleu) — explosion de points
+    this._engine.on('catchAt', e => {
+      this._showMulti('#08f');
+      this._renderMulti(e.x1, e.y1, e.x2, e.y2);
+      const cx = (e.x1 + e.x2) / 2, cy = (e.y1 + e.y2) / 2;
+      this._anim('burst', cx, cy, '#08f', { size: this._cursorSize * 3, duration: '0.5s' });
+    });
     this._engine.on('catchMove', e => this._renderMulti(e.x1, e.y1, e.x2, e.y2));
-    this._engine.on('catchDrop', () => this._hideMulti());
+    this._engine.on('catchDrop', e => {
+      this._hideMulti();
+      this._anim('burst', e.x, e.y, '#7cf', { size: this._cursorSize * 2.5, duration: '0.45s' });
+    });
   }
 }
 
