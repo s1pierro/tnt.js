@@ -871,13 +871,13 @@ class TouchOverlay {
     if (!this._pulseEnabled) return;
 
     if (type === 'burst') {
-      const N = 8, r = size * 0.7;
+      const N = 8, r = size * 2.1;
       for (let i = 0; i < N; i++) {
         const angle = (i / N) * Math.PI * 2;
         const dot   = document.createElement('div');
         dot.style.cssText = [
           'position:absolute', 'border-radius:50%', 'pointer-events:none',
-          `background:${color}`, 'width:5px', 'height:5px',
+          `background:${color}`, 'width:20px', 'height:20px',
           `left:${x}px`, `top:${y}px`,
           `--dx:${(Math.cos(angle) * r).toFixed(1)}px`,
           `--dy:${(Math.sin(angle) * r).toFixed(1)}px`,
