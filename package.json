@@ -5,10 +5,13 @@
   "type": "module",
   "main": "./tnt.js",
   "exports": {
-    ".": "./tnt.js"
+    ".": "./tnt.js",
+    "./min": "./tnt.min.js"
   },
   "files": [
     "tnt.js",
+    "tnt.min.js",
+    "tnt.min.js.map",
     "tnt.md",
     "README.md",
     "Screenshot_events.png",
