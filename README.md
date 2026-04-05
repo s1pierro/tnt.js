@@ -447,3 +447,18 @@ overlay.engine.on('longPress', e => deletePiece(e));
 - Payloads enrichis : `intensity`, `precision`, `activatedAt`, `vector`, `msAfterMin`
 - Getters/setters publics sur `TouchEngine` ; `CursorKinematics.reset()`
 - `TouchOverlay` : fix `_show`/`_hide` (opacity inline)
+
+---
+
+## Auteurs
+
+- **s1pierro** — conception, architecture, design des gestes
+- **Claude Sonnet 4.6** (Anthropic) — co-développement, implémentation, documentation
+
+---
+
+## Licence
+
+MIT — voir [LICENSE](./LICENSE)
+
+Copyright © 2026 s1pierro
