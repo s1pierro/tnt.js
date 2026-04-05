@@ -56,6 +56,15 @@ Aucun build requis. Compatible avec tout navigateur mobile moderne (Chrome Andro
 ## Machine à états
 
 ```
+
+<table align="center" width="100%" cellspacing="0" cellpadding="8" border="0">
+  <tr>
+    <td align="center" width="50%">
+      <img src="Screenshot_states.png" width="100%" alt="Marqueurs tap · press · longPress"/>
+      <br/><sub><b>tap &nbsp;·&nbsp; press &nbsp;·&nbsp; longPress</b></sub>
+    </td>
+    <td align="center" width="50%">
+      
                  ┌─────────────────────────────────────────────────────┐
                  │                 5 doigts (tout état)                 │
                  ▼                                                      │
@@ -70,6 +79,12 @@ IDLE ─(1 doigt)──► TAPPING ─(dépl. ≥ dist)──► GRABBING ─(re
          │            └──(2 doigts)──► PINCHING ┤                       │
          │                                      └──(tout relâché)───────┘
          └─────────────────────────────────────────────────────────────┘
+
+    </td>
+  </tr>
+  </tr>
+</table>
+
 ```
 
 ### Règles de transition
