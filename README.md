@@ -36,10 +36,22 @@ Toutes les coordonnées émises dans les événements sont **relatives à l'él�
 Copier `tnt.js` dans le projet et l'importer en tant que module ES :
 
 ```js
-import { TouchEngine, CursorKinematics, TouchOverlay } from './tnt.js';
+import { TouchEngine, CursorKinematics, TouchOverlay, DropCursor, TouchPanel } from './tnt.js';
 ```
 
 Aucun build requis. Compatible avec tout navigateur mobile moderne (Chrome Android, Safari iOS, Samsung Internet).
+
+**Usage minimal** — overlay + panneau de configuration intégré :
+
+```js
+const overlay = new TouchOverlay(document.getElementById('stage'));
+const panel   = new TouchPanel(overlay);   // modal configurable, toggle via 5 doigts
+
+overlay.engine.on('tap',      e => console.log('tap', e.x, e.y));
+overlay.engine.on('longPress', e => console.log('longPress', e.x, e.y));
+```
+
+`TouchPanel` gère automatiquement : réglages de l'overlay, `DropCursor` intégré, console d'événements, historique des états, export de configuration et raccourci 5 doigts (`tntBang`).
 
 ---
 
@@ -374,7 +386,7 @@ engine.on('pinchChange', ({ scale }) => {
 });
 ```
 
-### Overlay complet (prototypage)
+### Overlay complet + panneau de configuration
 
 ```js
 const overlay = new TouchOverlay(document.getElementById('stage'), {
@@ -386,6 +398,14 @@ const overlay = new TouchOverlay(document.getElementById('stage'), {
   rodEnabled:   true,
   pulseEnabled: true,
 });
+
+// Panneau modal (toggle via 5 doigts maintenus)
+const panel = new TouchPanel(overlay);
+
+// panel.drop        → DropCursor intégré
+// panel.markerTtl   → durée des marqueurs (ms)
+// panel.trailTtl    → durée de la traînée (ms)
+// panel.trailEnabled → traînée active
 
 overlay.engine.on('tap',      e => selectPiece(e));
 overlay.engine.on('longPress', e => deletePiece(e));
