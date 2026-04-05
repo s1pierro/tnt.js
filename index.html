@@ -550,7 +550,7 @@ function addTrail(x, y, color) {
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 
-bind('contactSize',  'contactSize',  v => { overlay.contactSize  = v; });
+bind('contactSize',  'contactSize',  v => { overlay.contactSize  = v; drop.size   = v; });
 bind('cursorSize',   'cursorSize',   v => { overlay.cursorSize   = v; });
 bind('rodEnabled',   'rodEnabled',   v => { overlay.rodEnabled   = v; });
 bind('pulseEnabled', 'pulseEnabled', v => { overlay.pulseEnabled = v; });
@@ -564,13 +564,18 @@ markerTtlInput.addEventListener('input', () => {
 
 // Drop cursor
 const drop = new DropCursor(stage, {
-  x: stage.clientWidth  * 0.35,
-  y: stage.clientHeight * 0.5,
-  angle: -30,
+  x:      stage.clientWidth  * 0.35,
+  y:      stage.clientHeight * 0.5,
+  angle:  -30,
+  size:   cfg.contactSize,
+  height: cfg.dist,
 });
 document.getElementById('dropEnabled').addEventListener('change', e => {
   drop.enabled = e.target.checked;
 });
+drop.on('click',  e => { showEvent('drop:click',  e); mark('tap', e.x, e.y); });
+drop.on('move',   e => { showEvent('drop:move',   e); });
+drop.on('orient', e => { showEvent('drop:orient', e); });
 
 const trailEnabledInput = document.getElementById('trailEnabled');
 trailEnabledInput.addEventListener('change', () => { trailEnabled = trailEnabledInput.checked; });
@@ -581,7 +586,7 @@ trailTtlInput.addEventListener('input', () => {
   TRAIL_TTL = parseInt(trailTtlInput.value, 10);
   trailTtlVal.textContent = TRAIL_TTL;
 });
-bind('dist', 'dist', v => { engine.dist = v; kine.dist = v; });
+bind('dist', 'dist', v => { engine.dist = v; kine.dist = v; drop.height = v; });
 bind('tapMax',       'tapMax',       v => { engine.tapMax        = v; });
 bind('pressMin',     'pressMin',     v => { engine.pressMin      = v; });
 bind('pressMax',     'pressMax',     v => { engine.pressMax      = v; });
@@ -645,6 +650,7 @@ function fmtEvent(name, data) {
   if (data.touchY     !== undefined) s += ` ty:${data.touchY|0}`;
   if (data.x1         !== undefined) s += ` (${data.x1|0},${data.y1|0})→(${data.x2|0},${data.y2|0})`;
   if (data.scale      !== undefined) s += ` sc:${data.scale.toFixed(2)}`;
+  if (data.angle      !== undefined) s += ` <span class="ev-state">∠${data.angle.toFixed(1)}°</span>`;
   if (data.duration   !== undefined) s += ` <span class="ev-state">${data.duration|0}ms</span>`;
   return s;
 }

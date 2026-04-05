@@ -1029,7 +1029,9 @@ class DropCursor {
     this._tid  = null;   // active touch identifier
     this._sx   = 0; this._sy   = 0;  // drag start touch pos
     this._ox   = 0; this._oy   = 0;  // drag start cursor pos
+    this._isDrag = false;
 
+    this._handlers = {};
     this._onMove   = null;
     this._onEnd    = null;
 
@@ -1046,11 +1048,36 @@ class DropCursor {
   get angle()   { return this._ang; }
   set angle(v)  { this._ang = v; this._el && this._render(); }
 
+  /** Rayon de la base (px). @type {number} */
+  get size()    { return this._R; }
+  set size(v)   { this._R = v; this._el && this._render(); }
+
+  /** Distance centre-base → pointe (px). @type {number} */
+  get height()  { return this._H; }
+  set height(v) { this._H = v; this._el && this._render(); }
+
   /** Position X du centre de la base. @type {number} */
   get x() { return this._x; }
 
   /** Position Y du centre de la base. @type {number} */
   get y() { return this._y; }
+
+  // ── Événements ──────────────────────────────────────────────────────────────
+
+  /**
+   * Abonne une fonction à un type d'événement.
+   * @param {string}   type - 'click' | 'move' | 'orient'
+   * @param {Function} fn
+   */
+  on(type, fn) {
+    (this._handlers[type] ??= []).push(fn);
+    return this;
+  }
+
+  /** @private */
+  emit(type, data) {
+    (this._handlers[type] ?? []).forEach(fn => fn(data));
+  }
 
   // ── Montage / démontage ────────────────────────────────────────────────────
 
@@ -1200,10 +1227,11 @@ class DropCursor {
       const zone = this._hit(tx, ty);
       if (!zone) return;
 
-      this._mode = zone;
-      this._tid  = t.identifier;
-      this._sx   = tx; this._sy = ty;
-      this._ox   = this._x; this._oy = this._y;
+      this._mode   = zone;
+      this._tid    = t.identifier;
+      this._sx     = tx; this._sy = ty;
+      this._ox     = this._x; this._oy = this._y;
+      this._isDrag = false;
     }, { passive: false });
 
     this._onMove = e => {
@@ -1217,22 +1245,39 @@ class DropCursor {
       const ty   = t.clientY - rect.top;
 
       if (this._mode === 'move') {
-        this._x = this._ox + (tx - this._sx);
-        this._y = this._oy + (ty - this._sy);
+        if (!this._isDrag && Math.hypot(tx - this._sx, ty - this._sy) > 8) {
+          this._isDrag = true;
+        }
+        if (this._isDrag) {
+          this._x = this._ox + (tx - this._sx);
+          this._y = this._oy + (ty - this._sy);
+          this._render();
+        }
       } else {
         // Orient : l'angle est la direction base→doigt
         // atan2(dx, -dy) : 0 quand le doigt est directement au-dessus (pointe en haut)
         const dx = tx - this._x;
         const dy = ty - this._y;
         this._ang = Math.atan2(dx, -dy) * 180 / Math.PI;
+        this._isDrag = true;
+        this._render();
       }
-      this._render();
     };
 
     this._onEnd = e => {
       if (Array.from(e.changedTouches).some(t => t.identifier === this._tid)) {
-        this._mode = null;
-        this._tid  = null;
+        const endedMode  = this._mode;
+        const endedDrag  = this._isDrag;
+        this._mode   = null;
+        this._tid    = null;
+        this._isDrag = false;
+
+        if (endedMode === 'move') {
+          if (endedDrag) this.emit('move', { x: this._x, y: this._y });
+          else           this.emit('click', { x: this._x, y: this._y });
+        } else if (endedMode === 'orient') {
+          this.emit('orient', { angle: this._ang });
+        }
       }
     };
 
