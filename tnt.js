@@ -1118,17 +1118,6 @@ class DropCursor {
     const cy = H + p;
     const tx = cx, ty = p; // pointe (H au-dessus de la base)
 
-    // Hachurage diagonal à 45° clipé dans le cercle intérieur de la base
-    const hR      = R * 0.80;
-    const spacing = 10;
-    const count   = Math.ceil((hR * 2) / spacing) + 3;
-    const lines   = Array.from({ length: count }, (_, i) => {
-      const off = -hR + i * spacing;
-      return `<line x1="${cx + off - hR}" y1="${cy - hR}" x2="${cx + off + hR}" y2="${cy + hR}"/>`;
-    }).join('');
-
-    const clipId = `tnt-dc-${this._id}`;
-
     // Chemin de la goutte (orientation canonique : pointe en haut)
     // — côté droit : pointe → tangente droite du cercle (cx+R, cy)
     // — arc inférieur : demi-cercle du bas (sweep=1 = sens horaire en SVG)
@@ -1148,31 +1137,17 @@ class DropCursor {
     this._svg.style.filter   = 'drop-shadow(0 2px 6px rgba(0,0,0,0.55))';
 
     this._svg.innerHTML = `
-      <defs>
-        <clipPath id="${clipId}">
-          <circle cx="${cx}" cy="${cy}" r="${hR}"/>
-        </clipPath>
-      </defs>
-
       <!-- Corps de la goutte -->
       <path d="${d}"
-        fill="rgba(255,255,255,0.10)"
+        fill="rgba(255,255,255,0.08)"
         stroke="rgba(255,255,255,0.72)"
         stroke-width="2"
         stroke-linejoin="round"/>
 
-      <!-- Hachurage de la zone de déplacement -->
-      <g clip-path="url(#${clipId})"
-         stroke="rgba(255,255,255,0.38)"
-         stroke-width="1.5"
-         stroke-linecap="round">
-        ${lines}
-      </g>
-
-      <!-- Cercle délimitant la zone de déplacement -->
-      <circle cx="${cx}" cy="${cy}" r="${hR}"
-        fill="none"
-        stroke="rgba(255,255,255,0.42)"
+      <!-- Disque de la zone de déplacement (rayon = R, identique au hit test) -->
+      <circle cx="${cx}" cy="${cy}" r="${R}"
+        fill="rgba(255,255,255,0.18)"
+        stroke="rgba(255,255,255,0.60)"
         stroke-width="1.5"/>
 
       <!-- Anneau d'orientation à la pointe -->
