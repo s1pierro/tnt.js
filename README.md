@@ -93,11 +93,6 @@ IDLE ─(1 doigt)──► TAPPING ─(dépl.)──► GRABBING ──► IDLE
 | `grabbing` | `idle` | doigt relevé |
 | `pinching` | `idle` | tout doigt relevé |
 
-<p align="center">
-  <img src="Screenshot_states.png" width="52%" alt="Historique des transitions d'état en temps réel"/>
-  <br/><sub><b>historique des transitions &nbsp;·&nbsp; badges colorés par état &nbsp;·&nbsp; durée de chaque phase</b></sub>
-</p>
-
 ---
 
 ## API
