@@ -345,6 +345,81 @@ function applyAll() {
 
 applyAll();
 
+// ── Canvas de marqueurs ───────────────────────────────────────────────────────
+const markerCanvas = document.createElement('canvas');
+markerCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
+stage.appendChild(markerCanvas);
+const mCtx = markerCanvas.getContext('2d');
+
+function resizeMarkerCanvas() {
+  markerCanvas.width  = stage.clientWidth;
+  markerCanvas.height = stage.clientHeight;
+}
+resizeMarkerCanvas();
+new ResizeObserver(resizeMarkerCanvas).observe(stage);
+
+const MARKER_TTL = 3500;
+const markers    = [];
+
+const MARKER_COLORS = {
+  tap:           '#0ff',
+  press:         '#ff0',
+  longPress:     '#f0f',
+  cancel:        '#f44',
+  cursorActivate:'#0f8',
+  cursorRelease: '#8fc',
+  cancelCursor:  '#f88',
+  catchAt:       '#08f',
+  catchDrop:     '#7cf',
+  pinchStart:    '#f80',
+};
+
+function nowStamp() {
+  const d = new Date();
+  return [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map(n => n.toString().padStart(2, '0')).join(':')
+    + '.' + d.getMilliseconds().toString().padStart(3, '0');
+}
+
+function mark(name, x, y) {
+  const color = MARKER_COLORS[name] ?? '#fff';
+  markers.push({ name, x, y, color, stamp: nowStamp(), born: performance.now() });
+}
+
+(function loop() {
+  mCtx.clearRect(0, 0, markerCanvas.width, markerCanvas.height);
+  const now = performance.now();
+
+  for (let i = markers.length - 1; i >= 0; i--) {
+    const m   = markers[i];
+    const age = now - m.born;
+    if (age > MARKER_TTL) { markers.splice(i, 1); continue; }
+
+    mCtx.globalAlpha = 1 - age / MARKER_TTL;
+
+    const R = 14, arm = 7;
+    mCtx.strokeStyle = m.color;
+    mCtx.lineWidth   = 1.5;
+    mCtx.beginPath();
+    mCtx.arc(m.x, m.y, R, 0, Math.PI * 2);
+    mCtx.stroke();
+    mCtx.beginPath();
+    mCtx.moveTo(m.x - R - arm, m.y); mCtx.lineTo(m.x + R + arm, m.y);
+    mCtx.moveTo(m.x, m.y - R - arm); mCtx.lineTo(m.x, m.y + R + arm);
+    mCtx.stroke();
+
+    mCtx.fillStyle = m.color;
+    mCtx.font = 'bold 11px monospace';
+    mCtx.fillText(m.name,  m.x + R + 8, m.y + 1);
+    mCtx.font = '10px monospace';
+    mCtx.fillText(m.stamp, m.x + R + 8, m.y + 13);
+  }
+
+  mCtx.globalAlpha = 1;
+  requestAnimationFrame(loop);
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+
 bind('contactSize',  'contactSize',  v => { overlay.contactSize  = v; });
 bind('cursorSize',   'cursorSize',   v => { overlay.cursorSize   = v; });
 bind('rodEnabled',   'rodEnabled',   v => { overlay.rodEnabled   = v; });
@@ -449,23 +524,23 @@ btnClearEvents.addEventListener('click', () => {
   eventLiveEl.innerHTML    = '';
 });
 
-engine.on('cursorActivate', e => showEvent('cursorActivate', e));
-engine.on('cursorMove',    e => showEvent('cursorMove', e, true));
-engine.on('cursorRelease', e => showEvent('cursorRelease', e));
-engine.on('cancelCursor',  e => showEvent('cancelCursor', e));
+engine.on('cursorActivate', e => { showEvent('cursorActivate', e); mark('cursorActivate', e.x, e.y); });
+engine.on('cursorMove',    e =>   showEvent('cursorMove', e, true));
+engine.on('cursorRelease', e => { showEvent('cursorRelease', e);  mark('cursorRelease',  e.x, e.y); });
+engine.on('cancelCursor',  e => { showEvent('cancelCursor',  e);  mark('cancelCursor',   e.x, e.y); });
 
-engine.on('cancel',    e => showEvent('cancel', e));
-engine.on('tap',       e => showEvent('tap', e));
-engine.on('press',     e => showEvent('press', e));
-engine.on('longPress', e => showEvent('longPress', e));
+engine.on('cancel',    e => { showEvent('cancel',    e); mark('cancel',    e.x, e.y); });
+engine.on('tap',       e => { showEvent('tap',       e); mark('tap',       e.x, e.y); });
+engine.on('press',     e => { showEvent('press',     e); mark('press',     e.x, e.y); });
+engine.on('longPress', e => { showEvent('longPress', e); mark('longPress', e.x, e.y); });
 
-engine.on('pinchStart',  e => showEvent('pinchStart', e));
-engine.on('pinchChange', e => showEvent('pinchChange', e, true));
-engine.on('pinchEnd',    e => showEvent('pinchEnd', e));
+engine.on('pinchStart',  e => { showEvent('pinchStart', e);  mark('pinchStart', (e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2); });
+engine.on('pinchChange', e =>   showEvent('pinchChange', e, true));
+engine.on('pinchEnd',    e =>   showEvent('pinchEnd', e));
 
-engine.on('catchAt',   e => showEvent('catchAt', e));
-engine.on('catchMove', e => showEvent('catchMove', e, true));
-engine.on('catchDrop', e => showEvent('catchDrop', e));
+engine.on('catchAt',   e => { showEvent('catchAt',   e); mark('catchAt',   e.x, e.y); });
+engine.on('catchMove', e =>   showEvent('catchMove',  e, true));
+engine.on('catchDrop', e => { showEvent('catchDrop',  e); mark('catchDrop', e.x, e.y); });
 
 const exportCode = document.getElementById('export-code');
 const btnExport = document.getElementById('btn-export');
