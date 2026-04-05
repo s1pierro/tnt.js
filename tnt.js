@@ -290,7 +290,7 @@ class TouchEngine {
       const t0  = e.changedTouches[0];
       const pos0 = this._pos(t0);
       this.firstTouchId = t0.identifier;
-      this.gestureStartStamp = performance.now();
+      this.gestureStartStamp = e.timeStamp;
       this.cursor.x = pos0.x;
       this.cursor.y = pos0.y;
       this.cursor.active = true;
@@ -496,7 +496,7 @@ class TouchEngine {
 
     // Single-touch gesture completion
     if (this.touchCount === 0 && this.gestureStartStamp !== null) {
-      const dt         = performance.now() - this.gestureStartStamp;
+      const dt         = e.timeStamp - this.gestureStartStamp;
       const finalState = this.state;
       const t0         = e.changedTouches[0];
       const { x, y }   = this._pos(t0);
