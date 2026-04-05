@@ -372,6 +372,7 @@ const MARKER_COLORS = {
   catchAt:       '#08f',
   catchDrop:     '#7cf',
   pinchStart:    '#f80',
+  pinchEnd:      '#fc8',
 };
 
 function nowStamp() {
@@ -536,7 +537,7 @@ engine.on('longPress', e => { showEvent('longPress', e); mark('longPress', e.x, 
 
 engine.on('pinchStart',  e => { showEvent('pinchStart', e);  mark('pinchStart', (e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2); });
 engine.on('pinchChange', e =>   showEvent('pinchChange', e, true));
-engine.on('pinchEnd',    e =>   showEvent('pinchEnd', e));
+engine.on('pinchEnd',    e => { showEvent('pinchEnd', e); mark('pinchEnd', e.x, e.y); });
 
 engine.on('catchAt',   e => { showEvent('catchAt',   e); mark('catchAt',   e.x, e.y); });
 engine.on('catchMove', e =>   showEvent('catchMove',  e, true));
