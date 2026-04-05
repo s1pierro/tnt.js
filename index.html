@@ -54,6 +54,11 @@ document.addEventListener('dblclick',    e => e.preventDefault());
 
 const stage = document.getElementById('stage');
 
+// ── TNT ───────────────────────────────────────────────────────────────────
+const overlay = new TouchOverlay(stage);
+const engine  = overlay.engine;
+const panel   = new TouchPanel(overlay);
+
 // ── Canvas de marqueurs & traînée ─────────────────────────────────────────
 const markerCanvas = document.createElement('canvas');
 markerCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
@@ -138,13 +143,6 @@ function addTrail(x, y, color) {
   mCtx.globalAlpha = 1;
   requestAnimationFrame(loop);
 })();
-
-// ── TNT ───────────────────────────────────────────────────────────────────
-const overlay = new TouchOverlay(stage);
-const engine  = overlay.engine;
-const kine    = overlay.kine;
-
-const panel = new TouchPanel(overlay);;
 
 // Marques canvas (le panel gère l'affichage texte en interne)
 engine.on('tap',       e => mark('tap',       e.x, e.y));
