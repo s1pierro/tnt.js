@@ -320,6 +320,15 @@
     <input id="markerTtl" type="range" min="500" max="10000" step="100" value="3500">
   </label>
 
+  <label>
+    <input id="trailEnabled" type="checkbox" checked> Traînée
+  </label>
+
+  <label>
+    Traînée (fade ms) <span id="trailTtlVal">1200</span>
+    <input id="trailTtl" type="range" min="100" max="5000" step="100" value="1200">
+  </label>
+
   <h3>⚙️ Cinématique</h3>
 
   <label>
@@ -450,8 +459,12 @@ function resizeMarkerCanvas() {
 resizeMarkerCanvas();
 new ResizeObserver(resizeMarkerCanvas).observe(stage);
 
-let   MARKER_TTL = 3500;
-const markers    = [];
+let   MARKER_TTL  = 3500;
+const markers     = [];
+
+let   TRAIL_TTL   = 1200;
+let   trailEnabled = true;
+const trail        = [];
 
 const MARKER_COLORS = {
   tap:           '#0ff',
@@ -479,9 +492,29 @@ function mark(name, x, y) {
   markers.push({ name, x, y, color, stamp: nowStamp(), born: performance.now() });
 }
 
+function addTrail(x, y, color) {
+  if (!trailEnabled) return;
+  trail.push({ x, y, color, born: performance.now() });
+}
+
 (function loop() {
   mCtx.clearRect(0, 0, markerCanvas.width, markerCanvas.height);
   const now = performance.now();
+
+  // ── Traînée ──────────────────────────────────────────────────────────────
+  for (let i = trail.length - 1; i >= 0; i--) {
+    const t   = trail[i];
+    const age = now - t.born;
+    if (age > TRAIL_TTL) { trail.splice(i, 1); continue; }
+    const progress = age / TRAIL_TTL;            // 0 → 1
+    const alpha    = (1 - progress) * 0.75;
+    const radius   = 3 * (1 - progress * 0.5);  // rétrécit légèrement
+    mCtx.globalAlpha = alpha;
+    mCtx.fillStyle   = t.color;
+    mCtx.beginPath();
+    mCtx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+    mCtx.fill();
+  }
 
   for (let i = markers.length - 1; i >= 0; i--) {
     const m   = markers[i];
@@ -523,6 +556,16 @@ const markerTtlVal   = document.getElementById('markerTtlVal');
 markerTtlInput.addEventListener('input', () => {
   MARKER_TTL = parseInt(markerTtlInput.value, 10);
   markerTtlVal.textContent = MARKER_TTL;
+});
+
+const trailEnabledInput = document.getElementById('trailEnabled');
+trailEnabledInput.addEventListener('change', () => { trailEnabled = trailEnabledInput.checked; });
+
+const trailTtlInput = document.getElementById('trailTtl');
+const trailTtlVal   = document.getElementById('trailTtlVal');
+trailTtlInput.addEventListener('input', () => {
+  TRAIL_TTL = parseInt(trailTtlInput.value, 10);
+  trailTtlVal.textContent = TRAIL_TTL;
 });
 bind('dist', 'dist', v => { engine.dist = v; kine.dist = v; });
 bind('tapMax',       'tapMax',       v => { engine.tapMax        = v; });
@@ -625,7 +668,7 @@ btnClearEvents.addEventListener('click', () => {
 });
 
 engine.on('cursorActivate', e => { showEvent('cursorActivate', e); mark('cursorActivate', e.x, e.y); });
-engine.on('cursorMove',    e =>   showEvent('cursorMove', e, true));
+engine.on('cursorMove',    e => { showEvent('cursorMove', e, true); addTrail(e.x, e.y, MARKER_COLORS.cursorActivate); });
 engine.on('cursorRelease', e => { showEvent('cursorRelease', e);  mark('cursorRelease',  e.x, e.y); });
 engine.on('cancelCursor',  e => { showEvent('cancelCursor',  e);  mark('cancelCursor',   e.x, e.y); });
 
@@ -635,11 +678,11 @@ engine.on('press',     e => { showEvent('press',     e); mark('press',     e.x, 
 engine.on('longPress', e => { showEvent('longPress', e); mark('longPress', e.x, e.y); });
 
 engine.on('pinchStart',  e => { showEvent('pinchStart', e);  mark('pinchStart', (e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2); });
-engine.on('pinchChange', e =>   showEvent('pinchChange', e, true));
+engine.on('pinchChange', e => { showEvent('pinchChange', e, true); addTrail((e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2, MARKER_COLORS.pinchStart); });
 engine.on('pinchEnd',    e => { showEvent('pinchEnd', e); mark('pinchEnd', e.x, e.y); });
 
 engine.on('catchAt',   e => { showEvent('catchAt',   e); mark('catchAt',   e.x, e.y); });
-engine.on('catchMove', e =>   showEvent('catchMove',  e, true));
+engine.on('catchMove', e => { showEvent('catchMove',  e, true); addTrail((e.x1 + e.x2) / 2, (e.y1 + e.y2) / 2, MARKER_COLORS.catchAt); });
 engine.on('catchDrop', e => { showEvent('catchDrop',  e); mark('catchDrop', e.x, e.y); });
 
 const exportCode = document.getElementById('export-code');
