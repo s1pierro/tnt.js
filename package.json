@@ -25,7 +25,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/s1pierro/tntjs"
+    "url": "https://github.com/s1pierro/tnt.js.git"
   },
   "scripts": {
     "docs": "jsdoc -c jsdoc.json"
