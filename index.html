@@ -45,12 +45,73 @@
 
   #panel {
     width: 260px;
+    min-width: 36px;
     height: 100vh;
     background: #1e1e1e;
     color: #ddd;
-    padding: 10px;
     box-sizing: border-box;
+    overflow: hidden;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #panel-inner {
+    flex: 1;
+    padding: 0 10px 10px;
     overflow-y: auto;
+    overflow-x: hidden;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+  }
+
+  #panel.collapsed #panel-inner {
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  #panel.collapsed {
+    width: 36px;
+  }
+
+  #btn-toggle-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px;
+    background: #252525;
+    color: #aaa;
+    border: none;
+    border-bottom: 1px solid #333;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    touch-action: manipulation;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: background 0.15s;
+  }
+  #btn-toggle-panel:active { background: #2e2e2e; }
+
+  #btn-toggle-panel .panel-label {
+    opacity: 1;
+    transition: opacity 0.15s;
+  }
+  #panel.collapsed #btn-toggle-panel .panel-label {
+    opacity: 0;
+  }
+
+  #btn-toggle-panel .panel-arrow {
+    font-size: 14px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  #panel.collapsed #btn-toggle-panel .panel-arrow {
+    transform: rotate(180deg);
   }
 
   h3 { margin: 10px 0 5px; }
@@ -229,6 +290,11 @@
 </div>
 
 <div id="panel">
+  <button id="btn-toggle-panel">
+    <span class="panel-label">Paramètres</span>
+    <span class="panel-arrow">›</span>
+  </button>
+  <div id="panel-inner">
   <h3>⚙️ Apparence</h3>
 
   <label>
@@ -296,6 +362,7 @@
   <h3>📤 Export</h3>
   <button id="btn-export">Copier le JSON</button>
   <pre id="export-code"></pre>
+  </div>
 </div>
 
 <script type="module">
@@ -643,6 +710,13 @@ function fallbackCopy() {
 }
 
 updateExport();
+
+// Toggle panel
+const btnTogglePanel = document.getElementById('btn-toggle-panel');
+const panel = document.getElementById('panel');
+btnTogglePanel.addEventListener('click', () => {
+  panel.classList.toggle('collapsed');
+});
 
 // Fullscreen
 const btnFullscreen = document.getElementById('btn-fullscreen');
