@@ -15,13 +15,13 @@ Sur mobile, le doigt masque ce qu'il touche. TNT déplace le point de pointage a
 
 ```
   ╭───────────╮
-  │  contact  │  ← point de contact réel (sous le doigt)
-  │     ●     │
+  │   contact   │  ← point de contact réel (sous le doigt)
+  │     ●       │
   ╰─────│─────╯
-        │  ← bras rigide (dist px, rotation libre)
-        │
+         │  ← bras rigide (dist px, rotation libre)
+         │
       ╭─▼─╮
-      │ ● │  ← curseur déporté (point de travail visible)
+      │ ●  │  ← curseur déporté (point de travail visible)
       ╰───╯
 ```
 
