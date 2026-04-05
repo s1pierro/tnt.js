@@ -1,4 +1,4 @@
-# TNT.js — Touch & No-Touch
+# TNT.js — tinyTouch
 
 **[Demo live →](https://s1pierro.github.io/tnt.js/)**
 
