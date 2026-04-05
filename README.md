@@ -55,37 +55,29 @@ Aucun build requis. Compatible avec tout navigateur mobile moderne (Chrome Andro
 
 ## Machine à états
 
-```
-
-<table align="center" width="100%" cellspacing="0" cellpadding="8" border="0">
+<table align="center" width="100%" cellspacing="0" cellpadding="12" border="0">
   <tr>
-    <td align="center" width="50%">
-      <img src="Screenshot_states.png" width="100%" alt="Marqueurs tap · press · longPress"/>
-      <br/><sub><b>tap &nbsp;·&nbsp; press &nbsp;·&nbsp; longPress</b></sub>
+    <td align="center" valign="middle" width="45%">
+      <img src="Screenshot_states.png" width="100%" alt="Historique des transitions d'état en temps réel"/>
+      <br/><sub><b>historique des transitions &nbsp;·&nbsp; badges colorés par état &nbsp;·&nbsp; durée de chaque phase</b></sub>
     </td>
-    <td align="center" width="50%">
-      
-                 ┌─────────────────────────────────────────────────────┐
-                 │                 5 doigts (tout état)                 │
-                 ▼                                                      │
-IDLE ─(1 doigt)──► TAPPING ─(dépl. ≥ dist)──► GRABBING ─(relâché)──► IDLE
-         │            │                                                  ▲
-         │            ├──(tapMax ms)──► PRESSING                        │
-         │            │                     │                           │
-         │            │         (longPressMin - tapMax ms)              │
-         │            │                     │                           │
-         │            │               LONGPRESSING                      │
-         │            │                     │                           │
-         │            └──(2 doigts)──► PINCHING ┤                       │
-         │                                      └──(tout relâché)───────┘
-         └─────────────────────────────────────────────────────────────┘
-
+    <td valign="middle" width="55%">
+<pre>
+         ┌────────────────────────────────────────┐
+         │         5 doigts (tout état)            │
+         ▼                                         │
+IDLE ─(1 doigt)──► TAPPING ─(dépl.)──► GRABBING ──► IDLE
+          │            │                             ▲
+          │            ├──(tapMax)──► PRESSING        │
+          │            │                  │           │
+          │            │           LONGPRESSING        │
+          │            │                              │
+          │            └──(2 doigts)──► PINCHING ─────┘
+          └──────────────────────────────────────────┘
+</pre>
     </td>
-  </tr>
   </tr>
 </table>
-
-```
 
 ### Règles de transition
 
