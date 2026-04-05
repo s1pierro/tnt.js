@@ -779,6 +779,10 @@ class TouchOverlay {
 @keyframes tnt-burst-dot {
   from { opacity:0.9; transform:translate(-50%,-50%); }
   to   { opacity:0;   transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))); }
+}
+@keyframes tnt-burst-in {
+  from { opacity:0.9; transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))); }
+  to   { opacity:0;   transform:translate(-50%,-50%); }
 }`;
     document.head.appendChild(style);
   }
@@ -870,8 +874,10 @@ class TouchOverlay {
   _anim(type, x, y, color, { size = this._cursorSize * 3, duration = '0.45s', delay = '0s' } = {}) {
     if (!this._pulseEnabled) return;
 
-    if (type === 'burst') {
-      const N = 8, r = size * 2.1;
+    if (type === 'burst' || type === 'burst-in') {
+      const N  = 8, r = size * 2.1;
+      const kf = type === 'burst-in' ? 'tnt-burst-in' : 'tnt-burst-dot';
+      const ease = type === 'burst-in' ? 'ease-in' : 'ease-out';
       for (let i = 0; i < N; i++) {
         const angle = (i / N) * Math.PI * 2;
         const dot   = document.createElement('div');
@@ -881,7 +887,7 @@ class TouchOverlay {
           `left:${x}px`, `top:${y}px`,
           `--dx:${(Math.cos(angle) * r).toFixed(1)}px`,
           `--dy:${(Math.sin(angle) * r).toFixed(1)}px`,
-          `animation:tnt-burst-dot ${duration} ease-out ${delay} forwards`,
+          `animation:${kf} ${duration} ${ease} ${delay} forwards`,
         ].join(';');
         this._el.appendChild(dot);
         dot.addEventListener('animationend', () => dot.remove(), { once: true });
@@ -968,7 +974,7 @@ class TouchOverlay {
     this._engine.on('catchMove', e => this._renderMulti(e.x1, e.y1, e.x2, e.y2));
     this._engine.on('catchDrop', e => {
       this._hideMulti();
-      this._anim('burst', e.x, e.y, '#7cf', { size: this._cursorSize * 2.5, duration: '0.45s' });
+      this._anim('burst-in', e.x, e.y, '#7cf', { size: this._cursorSize * 2.5, duration: '0.45s' });
     });
   }
 }
