@@ -1,8 +1,36 @@
 {
-  "name": "tntjs",
+  "name": "tnt.js",
   "version": "0.8.5",
+  "description": "Touch & No-Touch — displaced cursor overlay for mobile touch surfaces. Overcomes finger occlusion with a rigid-rod offset cursor and a full gesture state machine.",
   "type": "module",
+  "main": "./tnt.js",
+  "exports": {
+    ".": "./tnt.js"
+  },
+  "files": [
+    "tnt.js",
+    "tnt.md",
+    "README.md"
+  ],
+  "keywords": [
+    "touch",
+    "mobile",
+    "gesture",
+    "cursor",
+    "overlay",
+    "tap",
+    "pinch",
+    "drag"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/s1pierro/tntjs"
+  },
   "scripts": {
     "docs": "jsdoc -c jsdoc.json"
+  },
+  "engines": {
+    "node": ">=16"
   }
 }
