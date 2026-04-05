@@ -978,12 +978,12 @@ class TouchOverlay {
       this._showMulti('#08f');
       this._renderMulti(e.x1, e.y1, e.x2, e.y2);
       const cx = (e.x1 + e.x2) / 2, cy = (e.y1 + e.y2) / 2;
-      this._anim('burst', cx, cy, '#08f', { size: this._cursorSize * 3, duration: '0.5s' });
+      this._anim('burst-in', cx, cy, '#08f', { size: this._cursorSize * 3, duration: '0.5s' });
     });
     this._engine.on('catchMove', e => this._renderMulti(e.x1, e.y1, e.x2, e.y2));
     this._engine.on('catchDrop', e => {
       this._hideMulti();
-      this._anim('burst-in', e.x, e.y, '#7cf', { size: this._cursorSize * 2.5, duration: '0.45s' });
+      this._anim('burst', e.x, e.y, '#7cf', { size: this._cursorSize * 2.5, duration: '0.45s' });
     });
   }
 }
