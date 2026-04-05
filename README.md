@@ -25,11 +25,24 @@ Sur mobile, le doigt masque ce qu'il touche. TNT déplace le point de pointage a
 
 Toutes les coordonnées émises dans les événements sont **relatives à l'élément** écouté, pas au viewport.
 
-<p align="center">
-  <img src="screenshot1.png" width="48%" alt="TNT.js — marqueurs tap, press, longPress"/>
-  &nbsp;
-  <img src="screenshot2.png" width="48%" alt="TNT.js — marqueurs catch, pinch, cursorRelease"/>
-</p>
+<table align="center" width="100%" cellspacing="0" cellpadding="8" border="0">
+  <tr>
+    <td align="center" width="50%">
+      <img src="Screenshot_events_b.png" width="100%" alt="Marqueurs tap · press · longPress"/>
+      <br/><sub><b>tap &nbsp;·&nbsp; press &nbsp;·&nbsp; longPress</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="Screenshot_events_a.png" width="100%" alt="Marqueurs catch · cursorActivate · cursorRelease"/>
+      <br/><sub><b>catchAt &nbsp;·&nbsp; cursorActivate &nbsp;·&nbsp; cursorRelease</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="Screenshot_states.png" width="52%" alt="Console d'états et historique"/>
+      <br/><sub><b>console d'états &nbsp;·&nbsp; historique &nbsp;·&nbsp; export JSON</b></sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
