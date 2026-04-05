@@ -57,6 +57,7 @@
  * | `pinchStart`   | `{ scale, state }` |
  * | `pinchChange`  | `{ scale, state }` |
  * | `pinchEnd`     | `{ scale, duration, state }` |
+ * | `tntBang`      | `{ x, y }` — raccourci 5 doigts, maintenu `pressingToLongPressingFrontier` ms |
  *
  * - `intensity` `[0–1]` : durée normalisée dans la fenêtre temporelle du geste.
  * - `precision` : distance maximale (px) parcourue par le doigt depuis le départ.
@@ -143,6 +144,8 @@ class TouchEngine {
     this._maxDelta         = 0;     // distance max parcourue (precision)
     this._tapTimer         = null;
     this._longPressTimer   = null;
+    this._bangTimer        = null;
+    this._bangPending      = false;
     this._pinchInitDist    = 0;
     this._lastPinchScale   = 1;
     this._rect             = null;  // DOMRect mis en cache au début du geste
@@ -200,8 +203,10 @@ class TouchEngine {
   _clearTimers() {
     clearTimeout(this._tapTimer);
     clearTimeout(this._longPressTimer);
+    clearTimeout(this._bangTimer);
     this._tapTimer = null;
     this._longPressTimer = null;
+    this._bangTimer = null;
   }
 
   /** @private */
@@ -214,6 +219,7 @@ class TouchEngine {
     this.gestureStartStamp = null;
     this._grabActivatedAt = null;
     this._maxDelta = 0;
+    this._bangPending      = false;
     this._pinchInitDist    = 0;
     this._lastPinchScale   = 1;
     this._pending2         = false;
@@ -266,10 +272,33 @@ class TouchEngine {
       this.touches.set(t.identifier, { start: { ...pos }, prev: { ...pos } });
     }
 
-    // 5+ fingers: cancel any active gesture silently
+    // 5+ fingers → annuler le geste en cours et armer le raccourci tntBang
     if (this.touchCount >= 5) {
-      this.emit('cancelCursor', { x: this.cursor.x, y: this.cursor.y, state: 'idle' });
-      this._toIdle();
+      if (this.cursor.active) {
+        this.emit('cancelCursor', { x: this.cursor.x, y: this.cursor.y, state: 'idle' });
+      }
+      // Annuler timers et état geste sans effacer touchCount/touches
+      this._clearTimers();
+      this.state = 'idle';
+      this.firstTouchId = null; this.grabId = null;
+      this.gestureStartStamp = null; this._grabActivatedAt = null;
+      this._maxDelta = 0; this._pinchInitDist = 0; this._lastPinchScale = 1;
+      this._pending2 = false; this._pending2InitDist = 0;
+      this._pending2Center = null; this._lastCenter = null;
+      this.cursor.active = false;
+      this.emit('stateChange', { state: 'idle' });
+
+      if (!this._bangPending) {
+        this._bangPending = true;
+        this._bangTimer = setTimeout(() => {
+          this._bangPending = false;
+          const pts = [...this.touches.values()];
+          const x = pts.length ? pts.reduce((s, t) => s + t.prev.x, 0) / pts.length : 0;
+          const y = pts.length ? pts.reduce((s, t) => s + t.prev.y, 0) / pts.length : 0;
+          this.emit('tntBang', { x, y });
+          this._toIdle();
+        }, this.opts.pressingToLongPressingFrontier);
+      }
       return;
     }
 
@@ -312,11 +341,13 @@ class TouchEngine {
 
   /** @private */
   _move(e) {
-    if (this.state === 'idle') return;
-
+    if (this._bangPending || this.state === 'idle') return;
+    // Mise à jour des positions des touches en attente de bang (pour le centroïde)
     if (this.touchCount >= 5) {
-      this.emit('cancelCursor', { x: this.cursor.x, y: this.cursor.y, state: 'idle' });
-      this._toIdle();
+      for (const t of e.changedTouches) {
+        const data = this.touches.get(t.identifier);
+        if (data) data.prev = this._pos(t);
+      }
       return;
     }
 
@@ -435,6 +466,15 @@ class TouchEngine {
   /** @private */
   _end(e) {
     this.touchCount = Math.max(0, this.touchCount - e.changedTouches.length);
+
+    // Un doigt levé pendant l'attente tntBang → annulation
+    if (this._bangPending) {
+      this._clearTimers();
+      this._bangPending = false;
+      for (const t of e.changedTouches) this.touches.delete(t.identifier);
+      this._toIdle();
+      return;
+    }
 
     for (const t of e.changedTouches) {
       const data = this.touches.get(t.identifier);
@@ -950,6 +990,25 @@ class TouchOverlay {
     this._engine.on('pinchEnd', e => {
       this._hideMulti();
       this._anim('disc', e.x, e.y, '#fc8', { size: this._cursorSize * 2, duration: '0.35s' });
+    });
+
+    // tntBang (5 doigts) — toutes les animations simultanément
+    this._engine.on('tntBang', e => {
+      const S = this._cursorSize;
+      // ring (tap, press, longPress, cursorActivate)
+      this._anim('ring',        e.x, e.y, '#0ff', { size: S * 2.5, duration: '0.5s' });
+      this._anim('ring',        e.x, e.y, '#ff0', { size: S * 3,   duration: '0.55s', delay: '0.04s' });
+      this._anim('ring',        e.x, e.y, '#f0f', { size: S * 3.5, duration: '0.6s',  delay: '0.08s' });
+      this._anim('ring',        e.x, e.y, '#0f8', { size: S * 4,   duration: '0.65s', delay: '0.12s' });
+      // ring-shrink (cursorRelease, cancelCursor)
+      this._anim('ring-shrink', e.x, e.y, '#8fc', { size: S * 4,   duration: '0.5s',  delay: '0.05s' });
+      this._anim('ring-shrink', e.x, e.y, '#f88', { size: S * 3.5, duration: '0.45s', delay: '0.1s'  });
+      // disc (pinchStart, pinchEnd)
+      this._anim('disc',        e.x, e.y, '#f80', { size: S * 4,   duration: '0.55s', delay: '0.06s' });
+      this._anim('disc',        e.x, e.y, '#fc8', { size: S * 3,   duration: '0.5s',  delay: '0.12s' });
+      // burst (catchDrop) + burst-in (catchAt)
+      this._anim('burst',       e.x, e.y, '#7cf', { size: S * 4,   duration: '0.6s',  delay: '0.03s' });
+      this._anim('burst-in',    e.x, e.y, '#08f', { size: S * 4.5, duration: '0.65s', delay: '0.07s' });
     });
 
     // Catch (bleu) — explosion de points

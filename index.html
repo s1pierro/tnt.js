@@ -762,6 +762,11 @@ btnTogglePanel.addEventListener('click', () => {
   panel.classList.toggle('collapsed');
 });
 
+engine.on('tntBang', e => {
+  showEvent('tntBang', e);
+  panel.classList.toggle('collapsed');
+});
+
 // Fullscreen
 const btnFullscreen = document.getElementById('btn-fullscreen');
 btnFullscreen.addEventListener('click', () => {
