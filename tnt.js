@@ -1029,7 +1029,8 @@ class DropCursor {
     this._tid  = null;   // active touch identifier
     this._sx   = 0; this._sy   = 0;  // drag start touch pos
     this._ox   = 0; this._oy   = 0;  // drag start cursor pos
-    this._isDrag = false;
+    this._isDrag       = false;
+    this._interactive  = true;
 
     this._handlers = {};
     this._onMove   = null;
@@ -1047,6 +1048,21 @@ class DropCursor {
   /** Angle d'orientation en degrés. @type {number} */
   get angle()   { return this._ang; }
   set angle(v)  { this._ang = v; this._el && this._render(); }
+
+  /**
+   * Autorise les interactions tactiles (true uniquement en état idle du moteur).
+   * Passer à false annule immédiatement tout geste en cours.
+   * @type {boolean}
+   */
+  get interactive()  { return this._interactive; }
+  set interactive(v) {
+    this._interactive = !!v;
+    if (!this._interactive && this._mode) {
+      this._mode   = null;
+      this._tid    = null;
+      this._isDrag = false;
+    }
+  }
 
   /** Rayon de la base (px). @type {number} */
   get size()    { return this._R; }
@@ -1191,6 +1207,7 @@ class DropCursor {
   /** @private */
   _bindTouch() {
     this._el.addEventListener('touchstart', e => {
+      if (!this._interactive) return; // laisse l'événement remonter au moteur
       e.stopPropagation();
       e.preventDefault();
       if (this._mode) return; // un seul doigt actif à la fois

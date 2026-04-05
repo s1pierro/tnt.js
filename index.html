@@ -628,6 +628,7 @@ function addHistEntry(state) {
 engine.on('stateChange', e => {
   setState(e.state);
   addHistEntry(e.state);
+  drop.interactive = (e.state === 'idle');
 });
 
 btnClearHist.addEventListener('click', () => {
