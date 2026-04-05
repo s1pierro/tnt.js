@@ -154,6 +154,7 @@ class TouchEngine {
     this._pending2         = false; // 2e doigt posé, geste pas encore discriminé
     this._pending2InitDist = 0;     // distance inter-doigts au moment du 2e contact
     this._pending2Center   = null;  // centre inter-doigts au moment du 2e contact
+    this._lastCenter       = null;  // dernier centre médian connu (pinch ou catch)
 
     this._bind();
   }
@@ -230,6 +231,7 @@ class TouchEngine {
     this._pending2         = false;
     this._pending2InitDist = 0;
     this._pending2Center   = null;
+    this._lastCenter       = null;
     this.cursor.active = false;
     this.touches.clear();
     this.emit('stateChange', { state: 'idle' });
@@ -405,12 +407,14 @@ class TouchEngine {
         this._pending2       = false;
         this._pinchInitDist  = curDist;
         this._lastPinchScale = 1;
+        this._lastCenter     = { x: center.x, y: center.y };
         this._setState('pinching');
         this.emit('pinchStart', { scale: 1, state: 'pinching',
           x1: a.prev.x, y1: a.prev.y, x2: b.prev.x, y2: b.prev.y });
       } else if (centerMov >= threshold) {
         // Doigts se translatent ensemble → catch
-        this._pending2 = false;
+        this._pending2   = false;
+        this._lastCenter = { x: center.x, y: center.y };
         this._setState('catching');
         this.emit('catchAt', { x: center.x, y: center.y, state: 'catching',
           x1: a.prev.x, y1: a.prev.y, x2: b.prev.x, y2: b.prev.y });
@@ -423,6 +427,7 @@ class TouchEngine {
       const curDist = Math.hypot(b.prev.x - a.prev.x, b.prev.y - a.prev.y);
       const scale   = this._pinchInitDist > 0 ? curDist / this._pinchInitDist : 1;
       this._lastPinchScale = scale;
+      this._lastCenter = { x: (a.prev.x + b.prev.x) / 2, y: (a.prev.y + b.prev.y) / 2 };
       this.emit('pinchChange', { scale, state: 'pinching',
         x1: a.prev.x, y1: a.prev.y, x2: b.prev.x, y2: b.prev.y });
     }
@@ -430,9 +435,9 @@ class TouchEngine {
     // Catch update
     if (this.state === 'catching' && this.touches.size === 2) {
       const [a, b] = [...this.touches.values()];
+      this._lastCenter = { x: (a.prev.x + b.prev.x) / 2, y: (a.prev.y + b.prev.y) / 2 };
       this.emit('catchMove', {
-        x: (a.prev.x + b.prev.x) / 2,
-        y: (a.prev.y + b.prev.y) / 2,
+        x: this._lastCenter.x, y: this._lastCenter.y,
         x1: a.prev.x, y1: a.prev.y, x2: b.prev.x, y2: b.prev.y,
         state: 'catching',
       });
@@ -469,17 +474,15 @@ class TouchEngine {
     if (this.state === 'pinching') {
       const scale    = this._lastPinchScale;
       const duration = this.gestureStartStamp ? performance.now() - this.gestureStartStamp : 0;
+      const { x, y } = this._lastCenter ?? { x: 0, y: 0 };
       this._toIdle();
-      this.emit('pinchEnd', { scale, duration, state: 'idle' });
+      this.emit('pinchEnd', { x, y, scale, duration, state: 'idle' });
       return;
     }
 
     // Catch end on any lift while catching
     if (this.state === 'catching') {
-      // Centre calculé avant suppression des touches
-      const pts = [...this.touches.values()];
-      const x   = pts.reduce((s, p) => s + p.prev.x, 0) / (pts.length || 1);
-      const y   = pts.reduce((s, p) => s + p.prev.y, 0) / (pts.length || 1);
+      const { x, y } = this._lastCenter ?? { x: 0, y: 0 };
       this._toIdle();
       this.emit('catchDrop', { x, y, state: 'idle' });
       return;
