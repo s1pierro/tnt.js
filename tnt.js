@@ -1277,8 +1277,13 @@ class DropCursor {
       this._mode = null; this._tid = null; this._isDrag = false;
 
       if (endedMode === 'move') {
-        if (endedDrag) this.emit('move',   { x: this._x, y: this._y });
-        else           this.emit('click',  { x: this._x, y: this._y });
+        if (endedDrag) {
+          this.emit('move', { x: this._x, y: this._y });
+        } else {
+          const { x: tx, y: ty } = this._tipPos();
+          this._clickEffect(tx, ty);
+          this.emit('click', { x: tx, y: ty });
+        }
       } else if (endedMode === 'orient') {
         this.emit('orient', { angle: this._ang });
       }
@@ -1287,6 +1292,34 @@ class DropCursor {
     document.addEventListener('touchmove',   this._onMove,   { passive: false });
     document.addEventListener('touchend',    this._onEnd);
     document.addEventListener('touchcancel', this._onEnd);
+  }
+
+  /** Coordonnées de la pointe dans le repère du container. @private */
+  _tipPos() {
+    const rad = this._ang * Math.PI / 180;
+    return {
+      x: this._x + this._H * Math.sin(rad),
+      y: this._y - this._H * Math.cos(rad),
+    };
+  }
+
+  /** Animation carrée au point de clic. @private */
+  _clickEffect(tx, ty) {
+    const s = 26;
+    const div = document.createElement('div');
+    div.style.cssText =
+      `position:absolute;width:${s}px;height:${s}px;` +
+      `left:${tx - s / 2}px;top:${ty - s / 2}px;` +
+      `border:2px solid rgba(255,255,255,0.92);box-sizing:border-box;` +
+      `pointer-events:none;z-index:9999;` +
+      `transform:scale(0.35);opacity:1;` +
+      `transition:transform 380ms ease-out,opacity 380ms ease-out;`;
+    this._con.appendChild(div);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      div.style.transform = 'scale(2.4)';
+      div.style.opacity   = '0';
+    }));
+    setTimeout(() => div.remove(), 420);
   }
 
   /** Retire le curseur du DOM et libère tous les listeners. */
