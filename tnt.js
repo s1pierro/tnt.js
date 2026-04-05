@@ -499,24 +499,33 @@ class TouchEngine {
       const dt         = performance.now() - this.gestureStartStamp;
       const finalState = this.state;
       const t0         = e.changedTouches[0];
-      const { x, y }   = this._pos(t0);   // coordonnées relatives à l'élément
+      const { x, y }   = this._pos(t0);
       const precision  = this._maxDelta;
+
+      // Guard : only emit for single-touch gestures (not grab/pinch/catch)
+      const isSingleTouch = finalState === 'tapping'
+                         || finalState === 'pressing'
+                         || finalState === 'longPressing';
       this._toIdle();
 
-      if (finalState === 'tapping') {
-        // intensity: 0 (immediate) → 1 (at tapMax)
-        this.emit('tap', { x, y, intensity: Math.min(dt / this.opts.tapMax, 1), precision });
+      if (!isSingleTouch) return;
 
-      } else if (finalState === 'pressing') {
-        // Dead zone: pressMax < dt < longPressMin → emit nothing
-        if (dt <= this.opts.pressMax) {
-          const intensity = Math.max(0, (dt - this.opts.pressMin) / (this.opts.pressMax - this.opts.pressMin));
-          this.emit('press', { x, y, intensity, precision });
-        }
+      // Use dt as the source of truth — not the state — to avoid timer/event-loop races.
+      if (dt < this.opts.tapMax) {
+        // Contact released before tapMax : always a tap, regardless of state
+        this.emit('tap', { x, y, intensity: dt / this.opts.tapMax, precision });
 
-      } else if (finalState === 'longPressing') {
-        this.emit('longPress', { x, y, msAfterMin: Math.max(0, dt - this.opts.longPressMin), precision });
+      } else if (dt >= this.opts.pressMin && dt <= this.opts.pressMax) {
+        // Valid press window : [pressMin, pressMax]
+        const intensity = (dt - this.opts.pressMin) / (this.opts.pressMax - this.opts.pressMin);
+        this.emit('press', { x, y, intensity, precision });
+
+      } else if (dt >= this.opts.longPressMin) {
+        this.emit('longPress', { x, y, msAfterMin: dt - this.opts.longPressMin, precision });
       }
+      // Silent zones :
+      //   [tapMax, pressMin)   → tap trop long mais pas encore un press  (dépend du réglage)
+      //   (pressMax, longPressMin) → zone morte
     }
   }
 
