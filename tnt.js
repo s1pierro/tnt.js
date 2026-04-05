@@ -698,6 +698,9 @@ class TouchOverlay {
   /** Le {@link CursorKinematics} sous-jacent. @type {CursorKinematics} */
   get kine() { return this._kine; }
 
+  /** L'élément container sur lequel l'overlay est monté. @type {HTMLElement} */
+  get el() { return this._el; }
+
   /** Diamètre du point de contact (px), modifiable à l'exécution. @type {number} */
   set contactSize(v) {
     this._contactSize = v;
@@ -1325,13 +1328,13 @@ class DropCursor {
 /**
  * Panneau de configuration modal pour TouchOverlay.
  * Génère son propre DOM, gère les réglages, la console d'événements,
- * l'historique des états et l'export. Se toggle via tntBang.
+ * l'historique des états, l'export et le DropCursor intégré.
+ * Se toggle via tntBang (5 doigts).
  */
 class TouchPanel {
   /**
    * @param {TouchOverlay} overlay
    * @param {object}  [opts]
-   * @param {DropCursor} [opts.drop]            - DropCursor à piloter.
    * @param {number}  [opts.markerTtl=3500]     - Durée de vie des marqueurs (ms).
    * @param {number}  [opts.trailTtl=1200]      - Durée de vie de la traînée (ms).
    * @param {boolean} [opts.trailEnabled=true]  - Traînée activée au démarrage.
@@ -1340,7 +1343,6 @@ class TouchPanel {
   constructor(overlay, opts = {}) {
     this._ov  = overlay;
     this._eng = overlay.engine;
-    this._drop = opts.drop ?? null;
     this._key  = opts.storageKey ?? 'tnt-cfg';
 
     const saved = this._load();
@@ -1361,9 +1363,20 @@ class TouchPanel {
       ...saved,
     };
 
-    this._visible        = false;
-    this._el             = null;
-    this._histLastStamp  = Date.now();
+    this._visible       = false;
+    this._el            = null;
+    this._histLastStamp = Date.now();
+
+    // DropCursor — créé sur le même container que l'overlay
+    const con = overlay.el;
+    this._drop = new DropCursor(con, {
+      x:       con.clientWidth  * 0.35,
+      y:       con.clientHeight * 0.5,
+      angle:   -30,
+      size:    this._cfg.contactSize,
+      height:  this._cfg.dist,
+      enabled: this._cfg.dropEnabled,
+    });
 
     this._injectCSS();
     this._mount();
@@ -1377,6 +1390,9 @@ class TouchPanel {
   get markerTtl()    { return this._cfg.markerTtl; }
   get trailTtl()     { return this._cfg.trailTtl; }
   get trailEnabled() { return this._cfg.trailEnabled; }
+
+  /** Le {@link DropCursor} géré par ce panneau. @type {DropCursor} */
+  get drop() { return this._drop; }
 
   toggle() { this._visible ? this.hide() : this.show(); }
   show()   { this._visible = true;  this._el.classList.add('tnt-panel-open'); }
@@ -1616,9 +1632,10 @@ class TouchPanel {
     const eng = this._eng;
 
     eng.on('stateChange', e => {
-      this._badge.textContent = e.state;
-      this._badge.className   = 'tnt-sbadge ' + e.state;
+      this._badge.textContent  = e.state;
+      this._badge.className    = 'tnt-sbadge ' + e.state;
       this._addHist(e.state);
+      this._drop.interactive   = (e.state === 'idle');
     });
 
     const show = (n, d, live) => this._showEv(n, d, live);

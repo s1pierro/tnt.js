@@ -46,7 +46,7 @@
 </div>
 
 <script type="module">
-import { TouchOverlay, DropCursor, TouchPanel } from './tnt.js';
+import { TouchOverlay, TouchPanel } from './tnt.js';
 
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
@@ -144,18 +144,7 @@ const overlay = new TouchOverlay(stage);
 const engine  = overlay.engine;
 const kine    = overlay.kine;
 
-const drop = new DropCursor(stage, {
-  x:     stage.clientWidth  * 0.35,
-  y:     stage.clientHeight * 0.5,
-  angle: -30,
-  size:  overlay.contactSize,
-  height: engine.dist,
-});
-
-const panel = new TouchPanel(overlay, { drop });
-
-// DropCursor interactive uniquement en idle
-engine.on('stateChange', e => { drop.interactive = (e.state === 'idle'); });
+const panel = new TouchPanel(overlay);;
 
 // Marques canvas (le panel gère l'affichage texte en interne)
 engine.on('tap',       e => mark('tap',       e.x, e.y));
@@ -172,7 +161,7 @@ engine.on('pinchEnd',    e => mark('pinchEnd',   e.x, e.y));
 engine.on('catchAt',   e => mark('catchAt',   e.x, e.y));
 engine.on('catchMove', e => addTrail((e.x1+e.x2)/2, (e.y1+e.y2)/2, COLORS.catchAt));
 engine.on('catchDrop', e => mark('catchDrop', e.x, e.y));
-drop.on('click', e => mark('tap', e.x, e.y));
+panel.drop.on('click', e => mark('tap', e.x, e.y));
 
 // Fullscreen
 const btnFullscreen = document.getElementById('btn-fullscreen');
