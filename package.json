@@ -10,7 +10,9 @@
   "files": [
     "tnt.js",
     "tnt.md",
-    "README.md"
+    "README.md",
+    "screenshot1.png",
+    "screenshot2.png"
   ],
   "keywords": [
     "touch",
