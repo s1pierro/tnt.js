@@ -68,7 +68,7 @@ Aucun build requis. Compatible avec tout navigateur mobile moderne (Chrome Andro
          ▼                                         │
 IDLE ─(1 doigt)──► TAPPING ─(dépl.)──► GRABBING ──► IDLE
           │            │                             ▲
-          │            ├──(tapMax)──► PRESSING        │
+          │            ├──(frontier1)──► PRESSING      │
           │            │                  │           │
           │            │           LONGPRESSING        │
           │            │                              │
@@ -84,8 +84,8 @@ IDLE ─(1 doigt)──► TAPPING ─(dépl.)──► GRABBING ──► IDLE
 | De | Vers | Condition |
 |---|---|---|
 | `idle` | `tapping` | premier contact |
-| `tapping` | `pressing` | `tapMax` ms écoulées |
-| `pressing` | `longPressing` | `longPressMin` ms écoulées au total |
+| `tapping` | `pressing` | `tappingToPressingFrontier` ms écoulées |
+| `pressing` | `longPressing` | `pressingToLongPressingFrontier` ms écoulées au total |
 | `tapping` | `grabbing` | déplacement du doigt ≥ `dist` px |
 | `tapping` | `pinching` | 2e doigt posé |
 | `pressing` / `longPressing` | `idle` | déplacement ≥ `dist` (annulation) |
@@ -110,23 +110,19 @@ const engine = new TouchEngine(element, options);
 | Paramètre | Type | Défaut | Description |
 |---|---|---|---|
 | `dist` | `number` | `80` | Distance (px) à partir de laquelle le geste passe en `grabbing` ; aussi la longueur de la barre du curseur |
-| `tapMax` | `number` | `500` | Durée max (ms) d'un tap ; déclenche aussi la transition vers `pressing` |
-| `pressMin` | `number` | `500` | Durée min (ms) d'un press pour que l'intensité soit > 0 |
-| `pressMax` | `number` | `1500` | Durée max (ms) d'un press ; au-delà commence la zone morte |
-| `longPressMin` | `number` | `3000` | Durée totale (ms) avant d'entrer en `longPressing` |
+| `tappingToPressingFrontier` | `number` | `500` | Frontière (ms) tapping → pressing |
+| `pressingToLongPressingFrontier` | `number` | `1500` | Frontière (ms) pressing → longPressing |
 
-> **Zone morte** : entre `pressMax` et `longPressMin`, le relâché n'émet aucun événement.
+> Aucune zone morte : tout relâché émet exactement un événement (`tap`, `press` ou `longPress`).
 
 #### Getters / Setters
 
 Toutes les options sont accessibles et modifiables à l'exécution :
 
 ```js
-engine.dist         = 60;
-engine.tapMax       = 400;
-engine.pressMin     = 600;
-engine.pressMax     = 1200;
-engine.longPressMin = 2500;
+engine.dist                          = 60;
+engine.tappingToPressingFrontier     = 400;
+engine.pressingToLongPressingFrontier = 1400;
 ```
 
 #### Propriétés en lecture
@@ -164,22 +160,22 @@ Contact bref, sans déplacement significatif.
 ```js
 { x, y, intensity, precision }
 ```
-- `intensity` `[0–1]` : durée normalisée (`dt / tapMax`). Proche de 0 = tap vif, proche de 1 = tap à la limite du press.
+- `intensity` `[0–1]` : durée normalisée (`dt / tappingToPressingFrontier`). Proche de 0 = tap vif, proche de 1 = tap à la limite du press.
 - `precision` : distance maximale (px) parcourue par le doigt depuis le départ.
 
 #### `press`
-Contact moyen. N'est émis que si `pressMin ≤ dt ≤ pressMax`.
+Contact moyen, entre les deux frontières temporelles.
 ```js
 { x, y, intensity, precision }
 ```
-- `intensity` `[0–1]` : `(dt − pressMin) / (pressMax − pressMin)`.
+- `intensity` `[0–1]` : `(dt − b1) / (b2 − b1)` où `b1` = `tappingToPressingFrontier`, `b2` = `pressingToLongPressingFrontier`.
 
 #### `longPress`
-Contact long, maintenu au-delà de `longPressMin`.
+Contact long, maintenu au-delà de `pressingToLongPressingFrontier`.
 ```js
 { x, y, msAfterMin, precision }
 ```
-- `msAfterMin` : millisecondes au-delà de `longPressMin`.
+- `msAfterMin` : millisecondes au-delà de `pressingToLongPressingFrontier`.
 
 #### `cancel`
 Un geste `pressing` ou `longPressing` annulé parce que le doigt a bougé au-delà de `dist`.
@@ -392,11 +388,9 @@ engine.on('pinchChange', ({ scale }) => {
 
 ```js
 const overlay = new TouchOverlay(document.getElementById('stage'), {
-  dist:         60,
-  tapMax:       400,
-  pressMin:     600,
-  pressMax:     1400,
-  longPressMin: 2000,
+  dist:                           60,
+  tappingToPressingFrontier:      400,
+  pressingToLongPressingFrontier: 1400,
   contactSize:  28,
   cursorSize:   16,
   rodEnabled:   true,
@@ -412,15 +406,15 @@ overlay.engine.on('longPress', e => deletePiece(e));
 ## Réglage des paramètres temporels
 
 ```
-  0ms          tapMax     pressMax        longPressMin
-   │──────────────┼────────────┼──────────────┼──────────►
-   │   TAPPING    │  PRESSING  │  zone morte  │ LONGPRESSING
-   │              │            │              │
-   │ tap émis à   │ press émis │  (rien)      │ longPress émis
-   │ relâché       │ à relâché  │              │ à relâché
+  0ms       tappingToPressingFrontier   pressingToLongPressingFrontier
+   │──────────────────┼──────────────────────────┼──────────►
+   │     TAPPING      │        PRESSING           │ LONGPRESSING
+   │                  │                           │
+   │ tap émis         │ press émis                │ longPress émis
+   │ à relâché        │ à relâché                 │ à relâché
 ```
 
-**Zone morte** (`pressMax` → `longPressMin`) : aucun événement n'est émis si le doigt est relâché dans cet intervalle. Utile pour éviter les longPress accidentels.
+Aucune zone morte : tout relâché émet exactement un événement.
 
 **Annulation par déplacement** : pendant `pressing` ou `longPressing`, si le doigt parcourt plus de `dist` px, l'événement `cancel` est émis à la place de `press` / `longPress`.
 

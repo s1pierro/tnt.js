@@ -28,10 +28,8 @@ import { TouchOverlay } from './tnt.js';
 
 const overlay = new TouchOverlay(document.getElementById('stage'), {
   dist: 80,          // distance barre (px)
-  tapMax: 400,       // tap < 400ms
-  pressMin: 500,     // press entre 500ms et pressMax
-  pressMax: 1400,
-  longPressMin: 2500,
+  tappingToPressingFrontier:      400,   // tap < 400ms
+  pressingToLongPressingFrontier: 1400,  // press < 1400ms, longPress au-delà
 });
 
 // Accès au moteur pour s'abonner aux événements
@@ -73,9 +71,9 @@ container (0,0)
                  ▼                                                          │
 IDLE ─(1 doigt)──► TAPPING ─(dépl. ≥ dist)──► GRABBING ─(relâché)──────► IDLE
                       │                                                     ▲
-                      ├──(tapMax ms)──► PRESSING                           │
+                      ├──(tappingToPressingFrontier)──► PRESSING           │
                       │                    │                               │
-                      │        (longPressMin − tapMax ms)                  │
+                      │    (pressingToLongPressingFrontier − frontier1)    │
                       │                    │                               │
                       │               LONGPRESSING                         │
                       │                    │                               │
@@ -104,18 +102,18 @@ Toutes les coordonnées sont relatives au container.
 
 | Événement | Payload | Description |
 |---|---|---|
-| `tap` | `{ x, y, intensity, precision }` | Contact bref relâché avant `tapMax` ms |
-| `press` | `{ x, y, intensity, precision }` | Contact moyen (`pressMin` ≤ dt ≤ `pressMax`) |
-| `longPress` | `{ x, y, msAfterMin, precision }` | Contact long (≥ `longPressMin` ms) |
+| `tap` | `{ x, y, intensity, precision }` | Contact bref relâché avant `tappingToPressingFrontier` |
+| `press` | `{ x, y, intensity, precision }` | Contact moyen (entre les deux frontières) |
+| `longPress` | `{ x, y, msAfterMin, precision }` | Contact long (au-delà de `pressingToLongPressingFrontier`) |
 | `cancel` | `{ x, y, state }` | Press/longPress annulé par déplacement ≥ `dist` |
 
 **`intensity`** `[0–1]` :
-- `tap` : `dt / tapMax` — 0 = tap vif, 1 = tap à la limite du press
-- `press` : `(dt − pressMin) / (pressMax − pressMin)`
+- `tap` : `dt / tappingToPressingFrontier` — 0 = tap vif, 1 = tap à la limite du press
+- `press` : `(dt − b1) / (b2 − b1)` où `b1` = `tappingToPressingFrontier`, `b2` = `pressingToLongPressingFrontier`
 
 **`precision`** : distance max (px) parcourue par le doigt depuis le départ. Proche de 0 = doigt immobile.
 
-**Zone morte** : si `pressMax < dt < longPressMin`, le relâché n'émet rien.
+> Aucune zone morte : chaque relâché émet exactement un événement (`tap`, `press` ou `longPress`).
 
 ### Curseur déporté (grab)
 
@@ -257,12 +255,10 @@ engine.on('catchMove', ({ x, y }) => {
 | Option | Défaut | Description |
 |---|---|---|
 | `dist` | `80` | Distance barre (px) et seuil de déclenchement du grab |
-| `tapMax` | `500` | Durée max d'un tap (ms) ; aussi délai avant `pressing` |
-| `pressMin` | `500` | Durée min d'un press (ms) |
-| `pressMax` | `1500` | Durée max d'un press (ms) ; au-delà = zone morte |
-| `longPressMin` | `3000` | Durée totale avant `longPressing` (ms) |
+| `tappingToPressingFrontier` | `500` | Frontière (ms) tapping → pressing |
+| `pressingToLongPressingFrontier` | `1500` | Frontière (ms) pressing → longPressing |
 
-Toutes modifiables à l'exécution : `engine.dist = 60`, `engine.tapMax = 400`, etc.
+Toutes modifiables à l'exécution : `engine.dist = 60`, `engine.tappingToPressingFrontier = 400`, etc.
 
 ### `TouchOverlay` (visuels)
 

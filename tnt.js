@@ -26,9 +26,9 @@
  *                  ▼                                                      │
  * IDLE ─(1 doigt)──► TAPPING ─(dépl. ≥ dist)──► GRABBING ─(relâché)──► IDLE
  *          │            │                                                  ▲
- *          │            ├──(tapMax ms)──► PRESSING                        │
+ *          │            ├──(tappingToPressingFrontier)──► PRESSING          │
  *          │            │                     │                           │
- *          │            │         (longPressMin - tapMax ms)              │
+ *          │            │    (pressingToLongPressingFrontier - frontier1)  │
  *          │            │                     │                           │
  *          │            │               LONGPRESSING                      │
  *          │            │                     │                           │
@@ -101,20 +101,16 @@ class TouchEngine {
    * @param {HTMLElement} el - Élément sur lequel écouter les événements touch.
    * @param {Object}  [opts={}]
    * @param {number}  [opts.dist=80]           - Distance (px) de déclenchement du grab ; aussi la longueur de la barre.
-   * @param {number}  [opts.tapMax=500]        - Durée max (ms) d'un tap ; aussi le délai avant `pressing`.
-   * @param {number}  [opts.pressMin=500]      - Durée min (ms) d'un press pour avoir une intensité > 0.
-   * @param {number}  [opts.pressMax=1500]     - Durée max (ms) d'un press ; au-delà = zone morte.
-   * @param {number}  [opts.longPressMin=3000] - Durée totale (ms) avant d'entrer en `longPressing`.
+   * @param {number}  [opts.tappingToPressingFrontier=500]        - Frontière (ms) tapping → pressing.
+   * @param {number}  [opts.pressingToLongPressingFrontier=1500]  - Frontière (ms) pressing → longPressing.
    */
   constructor(el, opts = {}) {
     /** @type {HTMLElement} */
     this.el = el;
     this.opts = {
       dist: 80,
-      tapMax: 500,
-      pressMin: 500,
-      pressMax: 1500,
-      longPressMin: 3000,
+      tappingToPressingFrontier:       500,
+      pressingToLongPressingFrontier: 1500,
       ...opts,
     };
 
@@ -166,21 +162,13 @@ class TouchEngine {
   get dist()          { return this.opts.dist; }
   set dist(v)         { this.opts.dist = v; }
 
-  /** Durée max d'un tap, aussi délai avant `pressing` (ms). @type {number} */
-  get tapMax()        { return this.opts.tapMax; }
-  set tapMax(v)       { this.opts.tapMax = v; }
+  /** Frontière tapping → pressing (ms). @type {number} */
+  get tappingToPressingFrontier()        { return this.opts.tappingToPressingFrontier; }
+  set tappingToPressingFrontier(v)       { this.opts.tappingToPressingFrontier = v; }
 
-  /** Durée min d'un press pour avoir intensity > 0 (ms). @type {number} */
-  get pressMin()      { return this.opts.pressMin; }
-  set pressMin(v)     { this.opts.pressMin = v; }
-
-  /** Durée max d'un press ; au-delà = zone morte (ms). @type {number} */
-  get pressMax()      { return this.opts.pressMax; }
-  set pressMax(v)     { this.opts.pressMax = v; }
-
-  /** Durée totale avant d'entrer en `longPressing` (ms). @type {number} */
-  get longPressMin()  { return this.opts.longPressMin; }
-  set longPressMin(v) { this.opts.longPressMin = v; }
+  /** Frontière pressing → longPressing (ms). @type {number} */
+  get pressingToLongPressingFrontier()   { return this.opts.pressingToLongPressingFrontier; }
+  set pressingToLongPressingFrontier(v)  { this.opts.pressingToLongPressingFrontier = v; }
 
   /**
    * Abonne un handler à un événement.
@@ -296,18 +284,18 @@ class TouchEngine {
       this.cursor.active = true;
       this._setState('tapping');
 
-      // tapping → pressing after tapMax ms
+      // tapping → pressing at tappingToPressingFrontier
       this._tapTimer = setTimeout(() => {
         if (this.state !== 'tapping') return;
         this._setState('pressing');
 
-        // pressing → longPressing so that total elapsed = longPressMin
-        const remaining = Math.max(0, this.opts.longPressMin - this.opts.tapMax);
+        // pressing → longPressing at pressingToLongPressingFrontier
+        const remaining = this.opts.pressingToLongPressingFrontier - this.opts.tappingToPressingFrontier;
         this._longPressTimer = setTimeout(() => {
           if (this.state !== 'pressing') return;
           this._setState('longPressing');
-        }, remaining);
-      }, this.opts.tapMax);
+        }, Math.max(0, remaining));
+      }, this.opts.tappingToPressingFrontier);
 
       return;
     }
@@ -510,22 +498,17 @@ class TouchEngine {
 
       if (!isSingleTouch) return;
 
-      // Use dt as the source of truth — not the state — to avoid timer/event-loop races.
-      if (dt < this.opts.tapMax) {
-        // Contact released before tapMax : always a tap, regardless of state
-        this.emit('tap', { x, y, intensity: dt / this.opts.tapMax, precision });
-
-      } else if (dt >= this.opts.pressMin && dt <= this.opts.pressMax) {
-        // Valid press window : [pressMin, pressMax]
-        const intensity = (dt - this.opts.pressMin) / (this.opts.pressMax - this.opts.pressMin);
-        this.emit('press', { x, y, intensity, precision });
-
-      } else if (dt >= this.opts.longPressMin) {
-        this.emit('longPress', { x, y, msAfterMin: dt - this.opts.longPressMin, precision });
+      // dt est la source de vérité — pas l'état — pour éviter les races timer/event-loop.
+      // Séquence sans zone morte : [0, b1) tap | [b1, b2) press | [b2, ∞) longPress
+      const b1 = this.opts.tappingToPressingFrontier;
+      const b2 = this.opts.pressingToLongPressingFrontier;
+      if (dt < b1) {
+        this.emit('tap',       { x, y, intensity: dt / b1, precision });
+      } else if (dt < b2) {
+        this.emit('press',     { x, y, intensity: (dt - b1) / (b2 - b1), precision });
+      } else {
+        this.emit('longPress', { x, y, msAfterMin: dt - b2, precision });
       }
-      // Silent zones :
-      //   [tapMax, pressMin)   → tap trop long mais pas encore un press  (dépend du réglage)
-      //   (pressMax, longPressMin) → zone morte
     }
   }
 
@@ -628,10 +611,8 @@ class TouchOverlay {
    *   `TouchOverlay` force `position:relative` si le container est en `position:static`.
    * @param {Object}  [opts={}]
    * @param {number}  [opts.dist=80]           - Distance fixe doigt → curseur (px). Transmis à `TouchEngine` et `CursorKinematics`.
-   * @param {number}  [opts.tapMax=500]        - Voir {@link TouchEngine}.
-   * @param {number}  [opts.pressMin=500]      - Voir {@link TouchEngine}.
-   * @param {number}  [opts.pressMax=1500]     - Voir {@link TouchEngine}.
-   * @param {number}  [opts.longPressMin=3000] - Voir {@link TouchEngine}.
+   * @param {number}  [opts.tappingToPressingFrontier=500]       - Voir {@link TouchEngine}.
+   * @param {number}  [opts.pressingToLongPressingFrontier=1500] - Voir {@link TouchEngine}.
    * @param {number}  [opts.contactSize=24]    - Diamètre du point de contact (px).
    * @param {number}  [opts.cursorSize=14]     - Diamètre du curseur déporté (px).
    * @param {boolean} [opts.rodEnabled=true]   - Affiche le bras entre contact et curseur.
@@ -650,10 +631,8 @@ class TouchOverlay {
 
     this._engine = new TouchEngine(container, {
       dist:         opts.dist         ?? 80,
-      tapMax:       opts.tapMax       ?? 500,
-      pressMin:     opts.pressMin     ?? 500,
-      pressMax:     opts.pressMax     ?? 1500,
-      longPressMin: opts.longPressMin ?? 3000,
+      tappingToPressingFrontier:       opts.tappingToPressingFrontier       ?? 500,
+      pressingToLongPressingFrontier:  opts.pressingToLongPressingFrontier  ?? 1500,
     });
 
     this._kine = new CursorKinematics({

@@ -343,23 +343,13 @@
   <h3>⏱ Temporel</h3>
 
   <label>
-    Tap max (ms)
-    <input id="tapMax" type="range" min="100" max="2000" step="50" value="500">
+    Tapping → Pressing (ms)
+    <input id="tappingToPressingFrontier" type="range" min="100" max="2000" step="50" value="500">
   </label>
 
   <label>
-    Press min (ms)
-    <input id="pressMin" type="range" min="100" max="2000" step="50" value="500">
-  </label>
-
-  <label>
-    Press max (ms)
-    <input id="pressMax" type="range" min="500" max="3000" step="50" value="1500">
-  </label>
-
-  <label>
-    LongPress min (ms)
-    <input id="longPressMin" type="range" min="1000" max="5000" step="100" value="3000">
+    Pressing → LongPressing (ms)
+    <input id="pressingToLongPressingFrontier" type="range" min="200" max="5000" step="50" value="1500">
   </label>
 
   <h3>📡 Events</h3>
@@ -399,20 +389,16 @@ const DEFAULTS = {
   rodEnabled: true,
   pulseEnabled: true,
   dist: 60,
-  tapMax: 400,
-  pressMin: 700,
-  pressMax: 1500,
-  longPressMin: 2000,
+  tappingToPressingFrontier:      400,
+  pressingToLongPressingFrontier: 1500,
 };
 
 const cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('tnt-cfg') || '{}') };
 
 const overlay = new TouchOverlay(stage, {
-  dist:         cfg.dist,
-  tapMax:       cfg.tapMax,
-  pressMin:     cfg.pressMin,
-  pressMax:     cfg.pressMax,
-  longPressMin: cfg.longPressMin,
+  dist:                           cfg.dist,
+  tappingToPressingFrontier:      cfg.tappingToPressingFrontier,
+  pressingToLongPressingFrontier: cfg.pressingToLongPressingFrontier,
   contactSize:  cfg.contactSize,
   cursorSize:   cfg.cursorSize,
   rodEnabled:   cfg.rodEnabled,
@@ -442,10 +428,8 @@ function applyAll() {
   rodEnabled.checked = cfg.rodEnabled;
   pulseEnabled.checked = cfg.pulseEnabled;
   dist.value         = cfg.dist;
-  tapMax.value       = cfg.tapMax;
-  pressMin.value     = cfg.pressMin;
-  pressMax.value     = cfg.pressMax;
-  longPressMin.value = cfg.longPressMin;
+  tappingToPressingFrontier.value      = cfg.tappingToPressingFrontier;
+  pressingToLongPressingFrontier.value = cfg.pressingToLongPressingFrontier;
 }
 
 applyAll();
@@ -587,10 +571,8 @@ trailTtlInput.addEventListener('input', () => {
   trailTtlVal.textContent = TRAIL_TTL;
 });
 bind('dist', 'dist', v => { engine.dist = v; kine.dist = v; drop.height = v; });
-bind('tapMax',       'tapMax',       v => { engine.tapMax        = v; });
-bind('pressMin',     'pressMin',     v => { engine.pressMin      = v; });
-bind('pressMax',     'pressMax',     v => { engine.pressMax      = v; });
-bind('longPressMin', 'longPressMin', v => { engine.longPressMin  = v; });
+bind('tappingToPressingFrontier',      'tappingToPressingFrontier',      v => { engine.tappingToPressingFrontier      = v; });
+bind('pressingToLongPressingFrontier', 'pressingToLongPressingFrontier', v => { engine.pressingToLongPressingFrontier = v; });
 
 let lastEvent = null;
 
@@ -711,11 +693,9 @@ const btnExport = document.getElementById('btn-export');
 
 function buildExport() {
   const engineOpts = {
-    dist: cfg.dist,
-    tapMax: cfg.tapMax,
-    pressMin: cfg.pressMin,
-    pressMax: cfg.pressMax,
-    longPressMin: cfg.longPressMin,
+    dist:                           cfg.dist,
+    tappingToPressingFrontier:      cfg.tappingToPressingFrontier,
+    pressingToLongPressingFrontier: cfg.pressingToLongPressingFrontier,
   };
   const kineOpts = { dist: cfg.dist };
   const visualOpts = {
@@ -726,9 +706,9 @@ function buildExport() {
   };
   const note = `
 // normalized intensity (0-1):
-// tap:       dt / tapMax
-// press:     (dt - pressMin) / (pressMax - pressMin)
-// longPress: clamp((dt - longPressMin) / longPressMin, 0, 1)
+// tap:       dt / tappingToPressingFrontier
+// press:     (dt - b1) / (b2 - b1)   where b1=tappingToPressingFrontier, b2=pressingToLongPressingFrontier
+// longPress: dt - pressingToLongPressingFrontier  (ms au-delà de la frontière)
 `;
   return `// TouchEngine
 new TouchEngine(element, ${JSON.stringify(engineOpts, null, 2)});
