@@ -988,4 +988,261 @@ class TouchOverlay {
   }
 }
 
-export { TouchEngine, CursorKinematics, TouchOverlay };
+// ─── DropCursor ──────────────────────────────────────────────────────────────
+let _dcCount = 0;
+
+/**
+ * Curseur en goutte d'eau escamotable, toujours visible quand actif.
+ *
+ * La base arrondie (zone hachurée) sert à déplacer le curseur.
+ * L'anneau au sommet effilé sert à orienter la goutte (rotation libre).
+ * L'orientation reste fixe lors des déplacements — seule l'action sur
+ * l'anneau la modifie.
+ *
+ * @example
+ * const drop = new DropCursor(stage, { x: 200, y: 300, enabled: true });
+ */
+class DropCursor {
+  /**
+   * @param {HTMLElement} container  - Élément parent (doit être positionné).
+   * @param {object}      [opts]
+   * @param {number}  [opts.x=150]       - Position X du centre de la base.
+   * @param {number}  [opts.y=200]       - Position Y du centre de la base.
+   * @param {number}  [opts.angle=0]     - Orientation en degrés (0 = pointe en haut, sens horaire +).
+   * @param {number}  [opts.size=52]     - Rayon de la base (px).
+   * @param {number}  [opts.height=115]  - Distance centre-base → pointe (px).
+   * @param {boolean} [opts.enabled=false]
+   */
+  constructor(container, opts = {}) {
+    this._id  = ++_dcCount;
+    this._con = container;
+    this._x   = opts.x      ?? 150;
+    this._y   = opts.y      ?? 200;
+    this._ang = opts.angle  ?? 0;
+    this._R   = opts.size   ?? 52;
+    this._H   = opts.height ?? 115;
+    this._pad = 18;
+
+    this._el   = null;
+    this._svg  = null;
+    this._mode = null;   // 'move' | 'orient'
+    this._tid  = null;   // active touch identifier
+    this._sx   = 0; this._sy   = 0;  // drag start touch pos
+    this._ox   = 0; this._oy   = 0;  // drag start cursor pos
+
+    this._onMove   = null;
+    this._onEnd    = null;
+
+    if (opts.enabled) this._mount();
+  }
+
+  // ── Accesseurs ─────────────────────────────────────────────────────────────
+
+  /** Active ou masque le curseur. @type {boolean} */
+  get enabled() { return !!this._el; }
+  set enabled(v) { !!v === this.enabled ? null : v ? this._mount() : this._unmount(); }
+
+  /** Angle d'orientation en degrés. @type {number} */
+  get angle()   { return this._ang; }
+  set angle(v)  { this._ang = v; this._el && this._render(); }
+
+  /** Position X du centre de la base. @type {number} */
+  get x() { return this._x; }
+
+  /** Position Y du centre de la base. @type {number} */
+  get y() { return this._y; }
+
+  // ── Montage / démontage ────────────────────────────────────────────────────
+
+  /** @private */
+  _mount() {
+    const cs = getComputedStyle(this._con);
+    if (cs.position === 'static') this._con.style.position = 'relative';
+
+    this._el = document.createElement('div');
+    this._el.style.cssText = 'position:absolute;touch-action:none;z-index:9998;';
+
+    this._svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    this._el.appendChild(this._svg);
+    this._con.appendChild(this._el);
+
+    this._render();
+    this._bindTouch();
+  }
+
+  /** @private */
+  _unmount() {
+    if (!this._el) return;
+    document.removeEventListener('touchmove',   this._onMove);
+    document.removeEventListener('touchend',    this._onEnd);
+    document.removeEventListener('touchcancel', this._onEnd);
+    this._el.remove();
+    this._el = null; this._svg = null;
+  }
+
+  // ── Rendu SVG ──────────────────────────────────────────────────────────────
+
+  /** @private */
+  _render() {
+    const R = this._R, H = this._H, p = this._pad;
+    const W  = 2 * (R + p);
+    const Ht = H + R + 2 * p;
+    const cx = R + p;     // centre de la base dans le SVG
+    const cy = H + p;
+    const tx = cx, ty = p; // pointe (H au-dessus de la base)
+
+    // Hachurage diagonal à 45° clipé dans le cercle intérieur de la base
+    const hR      = R * 0.80;
+    const spacing = 10;
+    const count   = Math.ceil((hR * 2) / spacing) + 3;
+    const lines   = Array.from({ length: count }, (_, i) => {
+      const off = -hR + i * spacing;
+      return `<line x1="${cx + off - hR}" y1="${cy - hR}" x2="${cx + off + hR}" y2="${cy + hR}"/>`;
+    }).join('');
+
+    const clipId = `tnt-dc-${this._id}`;
+
+    // Chemin de la goutte (orientation canonique : pointe en haut)
+    // — côté droit : pointe → tangente droite du cercle (cx+R, cy)
+    // — arc inférieur : demi-cercle du bas (sweep=1 = sens horaire en SVG)
+    // — côté gauche : tangente gauche (cx-R, cy) → pointe
+    const d = [
+      `M ${tx} ${ty}`,
+      `C ${cx + R * 0.38} ${ty + H * 0.42}  ${cx + R} ${cy - R * 0.58}  ${cx + R} ${cy}`,
+      `A ${R} ${R} 0 0 1 ${cx - R} ${cy}`,
+      `C ${cx - R} ${cy - R * 0.58}  ${cx - R * 0.38} ${ty + H * 0.42}  ${tx} ${ty} Z`,
+    ].join(' ');
+
+    this._svg.setAttribute('width',   W);
+    this._svg.setAttribute('height',  Ht);
+    this._svg.setAttribute('viewBox', `0 0 ${W} ${Ht}`);
+    this._svg.style.overflow = 'visible';
+    this._svg.style.display  = 'block';
+    this._svg.style.filter   = 'drop-shadow(0 2px 6px rgba(0,0,0,0.55))';
+
+    this._svg.innerHTML = `
+      <defs>
+        <clipPath id="${clipId}">
+          <circle cx="${cx}" cy="${cy}" r="${hR}"/>
+        </clipPath>
+      </defs>
+
+      <!-- Corps de la goutte -->
+      <path d="${d}"
+        fill="rgba(255,255,255,0.10)"
+        stroke="rgba(255,255,255,0.72)"
+        stroke-width="2"
+        stroke-linejoin="round"/>
+
+      <!-- Hachurage de la zone de déplacement -->
+      <g clip-path="url(#${clipId})"
+         stroke="rgba(255,255,255,0.38)"
+         stroke-width="1.5"
+         stroke-linecap="round">
+        ${lines}
+      </g>
+
+      <!-- Cercle délimitant la zone de déplacement -->
+      <circle cx="${cx}" cy="${cy}" r="${hR}"
+        fill="none"
+        stroke="rgba(255,255,255,0.42)"
+        stroke-width="1.5"/>
+
+      <!-- Anneau d'orientation à la pointe -->
+      <circle cx="${tx}" cy="${ty}" r="10"
+        fill="rgba(255,255,255,0.08)"
+        stroke="rgba(255,255,255,0.90)"
+        stroke-width="2"/>
+      <circle cx="${tx}" cy="${ty}" r="3"
+        fill="rgba(255,255,255,0.70)"/>
+    `;
+
+    // Positionnement et rotation autour du centre de la base
+    this._el.style.left            = `${this._x - cx}px`;
+    this._el.style.top             = `${this._y - cy}px`;
+    this._el.style.transformOrigin = `${cx}px ${cy}px`;
+    this._el.style.transform       = `rotate(${this._ang}deg)`;
+  }
+
+  // ── Détection de zone ──────────────────────────────────────────────────────
+
+  /**
+   * Retourne la zone touchée ('move', 'orient', ou null).
+   * @private
+   * @param {number} cx  - X dans le repère du container.
+   * @param {number} cy  - Y dans le repère du container.
+   */
+  _hit(cx, cy) {
+    const dx  = cx - this._x;
+    const dy  = cy - this._y;
+    const rad = this._ang * Math.PI / 180;
+    // Repère canonique (sans rotation) : base en (0,0), pointe en (0,-H)
+    const lx = dx * Math.cos(-rad) - dy * Math.sin(-rad);
+    const ly = dx * Math.sin(-rad) + dy * Math.cos(-rad);
+    if (Math.hypot(lx, ly + this._H) < 22) return 'orient';
+    if (Math.hypot(lx, ly)           < this._R) return 'move';
+    return null;
+  }
+
+  // ── Gestion tactile ────────────────────────────────────────────────────────
+
+  /** @private */
+  _bindTouch() {
+    this._el.addEventListener('touchstart', e => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (this._mode) return; // un seul doigt actif à la fois
+
+      const t    = e.changedTouches[0];
+      const rect = this._con.getBoundingClientRect();
+      const tx   = t.clientX - rect.left;
+      const ty   = t.clientY - rect.top;
+      const zone = this._hit(tx, ty);
+      if (!zone) return;
+
+      this._mode = zone;
+      this._tid  = t.identifier;
+      this._sx   = tx; this._sy = ty;
+      this._ox   = this._x; this._oy = this._y;
+    }, { passive: false });
+
+    this._onMove = e => {
+      if (!this._mode) return;
+      e.preventDefault();
+      const t = Array.from(e.changedTouches).find(t => t.identifier === this._tid);
+      if (!t) return;
+
+      const rect = this._con.getBoundingClientRect();
+      const tx   = t.clientX - rect.left;
+      const ty   = t.clientY - rect.top;
+
+      if (this._mode === 'move') {
+        this._x = this._ox + (tx - this._sx);
+        this._y = this._oy + (ty - this._sy);
+      } else {
+        // Orient : l'angle est la direction base→doigt
+        // atan2(dx, -dy) : 0 quand le doigt est directement au-dessus (pointe en haut)
+        const dx = tx - this._x;
+        const dy = ty - this._y;
+        this._ang = Math.atan2(dx, -dy) * 180 / Math.PI;
+      }
+      this._render();
+    };
+
+    this._onEnd = e => {
+      if (Array.from(e.changedTouches).some(t => t.identifier === this._tid)) {
+        this._mode = null;
+        this._tid  = null;
+      }
+    };
+
+    document.addEventListener('touchmove',   this._onMove,   { passive: false });
+    document.addEventListener('touchend',    this._onEnd);
+    document.addEventListener('touchcancel', this._onEnd);
+  }
+
+  /** Retire le curseur du DOM et libère tous les listeners. */
+  destroy() { this._unmount(); }
+}
+
+export { TouchEngine, CursorKinematics, TouchOverlay, DropCursor };

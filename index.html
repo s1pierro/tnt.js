@@ -321,6 +321,10 @@
   </label>
 
   <label>
+    <input id="dropEnabled" type="checkbox"> Curseur goutte
+  </label>
+
+  <label>
     <input id="trailEnabled" type="checkbox" checked> Traînée
   </label>
 
@@ -375,7 +379,7 @@
 </div>
 
 <script type="module">
-import { TouchOverlay } from './tnt.js';
+import { TouchOverlay, DropCursor } from './tnt.js';
 
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
@@ -556,6 +560,16 @@ const markerTtlVal   = document.getElementById('markerTtlVal');
 markerTtlInput.addEventListener('input', () => {
   MARKER_TTL = parseInt(markerTtlInput.value, 10);
   markerTtlVal.textContent = MARKER_TTL;
+});
+
+// Drop cursor
+const drop = new DropCursor(stage, {
+  x: stage.clientWidth  * 0.35,
+  y: stage.clientHeight * 0.5,
+  angle: -30,
+});
+document.getElementById('dropEnabled').addEventListener('change', e => {
+  drop.enabled = e.target.checked;
 });
 
 const trailEnabledInput = document.getElementById('trailEnabled');
